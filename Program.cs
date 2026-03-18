@@ -16,6 +16,10 @@ class Program
         Console.OutputEncoding = Encoding.UTF8;
         Console.WriteLine("=== EAS Email Archiver ===\n");
 
+        // ── Test mode ────────────────────────────────────────────────────────
+        if (args.Contains("--test"))
+            return WbxmlTests.RunAll();
+
         // ── Normalize -v / -vv / -vvv → --Eas:Verbosity=N ───────────────────
         args = NormalizeVerbosityArgs(args);
 
