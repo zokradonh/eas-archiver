@@ -293,7 +293,8 @@ internal static class EasWbxml
             _pos = 1;                         // skip version byte
             SkipMbInt();                      // public identifier
             SkipMbInt();                      // charset
-            _pos += (int)ReadMbInt();         // skip string table
+            var strtblLen = (int)ReadMbInt(); // string table length
+            _pos += strtblLen;                // skip string table bytes
             return ReadElement() ?? throw new InvalidOperationException("Empty WBXML document");
         }
 
