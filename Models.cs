@@ -1,0 +1,27 @@
+using System.Collections.Generic;
+
+namespace EasArchiver;
+
+/// <summary>
+/// Loaded from appsettings.json (section "Eas").
+/// Missing values are prompted interactively at startup.
+/// </summary>
+public class EasConfig
+{
+    public string ServerUrl       { get; set; } = "";
+    public string Domain          { get; set; } = "";
+    public string Username        { get; set; } = "";
+    public string Password        { get; set; } = "";
+    public string ArchiveDirectory{ get; set; } = "mail_archive";
+    public int    WindowSize      { get; set; } = 50;
+}
+
+/// <summary>
+/// Persisted to eas_sync_state.json – stores SyncKeys
+/// so that each run only fetches new emails.
+/// </summary>
+public class SyncState
+{
+    public string?                    FolderSyncKey { get; set; }
+    public Dictionary<string, string> FolderKeys    { get; set; } = [];
+}

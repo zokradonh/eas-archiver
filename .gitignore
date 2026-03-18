@@ -1,0 +1,8 @@
+appsettings.local.json
+
+# Build output
+bin/
+obj/
+
+# Sync state
+eas_sync_state.json
