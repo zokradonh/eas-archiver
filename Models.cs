@@ -14,6 +14,8 @@ public class EasConfig
     public string Password        { get; set; } = "";
     public string ArchiveDirectory{ get; set; } = "mail_archive";
     public int    WindowSize      { get; set; } = 50;
+    /// <summary>0 = off  1 = URL+status  2 = +headers  3 = +body</summary>
+    public int    Verbosity       { get; set; } = 0;
 }
 
 /// <summary>

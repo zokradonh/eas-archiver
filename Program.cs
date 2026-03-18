@@ -16,6 +16,9 @@ class Program
         Console.OutputEncoding = Encoding.UTF8;
         Console.WriteLine("=== EAS Email Archiver ===\n");
 
+        // ── Normalize -v / -vv / -vvv → --Eas:Verbosity=N ───────────────────
+        args = NormalizeVerbosityArgs(args);
+
         // ── Load configuration ───────────────────────────────────────────────
         // Order (later overrides earlier):
         //   1. appsettings.json
@@ -102,6 +105,23 @@ class Program
 
         if (prompted) Console.WriteLine();
         return cfg;
+    }
+
+    private static string[] NormalizeVerbosityArgs(string[] args)
+    {
+        var result = new List<string>();
+        foreach (var arg in args)
+        {
+            result.Add(arg switch
+            {
+                "-vvv" or "--verbose=3" => "--Eas:Verbosity=3",
+                "-vv"  or "--verbose=2" => "--Eas:Verbosity=2",
+                "-v"   or "--verbose"
+                       or "--verbose=1" => "--Eas:Verbosity=1",
+                _                       => arg,
+            });
+        }
+        return result.ToArray();
     }
 
     private static string ReadPassword()

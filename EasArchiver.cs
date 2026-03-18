@@ -63,10 +63,12 @@ public class EasArchiver
     // ── Fields ────────────────────────────────────────────────────────────────
     private readonly EasConfig  _cfg;
     private readonly HttpClient _http;
+    private readonly int        _v; // verbosity 0-3
 
     public EasArchiver(EasConfig cfg)
     {
         _cfg = cfg;
+        _v   = cfg.Verbosity;
 
         _http = new HttpClient();
         _http.DefaultRequestHeaders.Add("MS-ASProtocolVersion", EasVersion);
@@ -132,8 +134,18 @@ public class EasArchiver
                     Xml(NsProvision + "PolicyKey",   policyKey),
                     Xml(NsProvision + "Status",      "1"))));
 
-        await PostAsync("Provision", ack);
-        Console.WriteLine($"     Policy-Key: {policyKey}");
+        var ackRoot   = await PostAsync("Provision", ack);
+
+        // The server returns a final policy key in the acknowledgement response.
+        // All subsequent requests MUST carry X-MS-PolicyKey with this value,
+        // otherwise FolderSync (and Sync) silently returns empty results.
+        var finalKey  = ackRoot?.Descendants(NsProvision + "PolicyKey")
+                                .FirstOrDefault()?.Value ?? policyKey;
+
+        _http.DefaultRequestHeaders.Remove("X-MS-PolicyKey");
+        _http.DefaultRequestHeaders.Add("X-MS-PolicyKey", finalKey);
+
+        Console.WriteLine($"     Policy-Key: {finalKey}");
     }
 
     // ── Step 2: FolderSync ───────────────────────────────────────────────────
@@ -148,6 +160,10 @@ public class EasArchiver
         var root = await PostAsync("FolderSync", request);
         var folders = new Dictionary<string, string>(); // id → display name
         if (root is null) return folders;
+
+        var status = root.Descendants(NsFolderHier + "Status").FirstOrDefault()?.Value;
+        if (status is not null && status != "1")
+            throw new InvalidOperationException($"FolderSync failed – Status={status}");
 
         var newKey = root.Descendants(NsFolderHier + "SyncKey").FirstOrDefault()?.Value;
         if (newKey is not null) state.FolderSyncKey = newKey;
@@ -273,26 +289,58 @@ public class EasArchiver
             $"?Cmd={cmd}&User={Uri.EscapeDataString(_cfg.Username)}" +
             $"&DeviceId={DeviceId}&DeviceType={DeviceType}";
 
-        var content = new StringContent(
-            body.ToString(SaveOptions.DisableFormatting),
-            Encoding.UTF8,
-            "text/xml");
+        var wbxmlBytes = EasWbxml.Encode(body);
+        var content    = new ByteArrayContent(wbxmlBytes);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.ms-sync.wbxml");
+
+        // ── Verbosity: Request ────────────────────────────────────────────────
+        if (_v >= 1) Log($"→ POST {url}");
+        if (_v >= 2)
+        {
+            foreach (var h in _http.DefaultRequestHeaders)
+                Log($"  {h.Key}: {string.Join(", ", h.Value)}");
+            Log($"  Content-Type: {content.Headers.ContentType}");
+            Log($"  Content-Length: {wbxmlBytes.Length}");
+        }
+        if (_v >= 3) Log($"\n  req-hex: {Convert.ToHexString(wbxmlBytes)}\n{body}\n");
 
         var resp = await _http.PostAsync(url, content);
+
+        // ── Verbosity: Response ───────────────────────────────────────────────
+        if (_v >= 1) Log($"← {(int)resp.StatusCode} {resp.ReasonPhrase}");
+        if (_v >= 2)
+        {
+            foreach (var h in resp.Headers)
+                Log($"  {h.Key}: {string.Join(", ", h.Value)}");
+            foreach (var h in resp.Content.Headers)
+                Log($"  {h.Key}: {string.Join(", ", h.Value)}");
+        }
 
         if ((int)resp.StatusCode == 449) throw new EasQuarantineException(DeviceId);
         if ((int)resp.StatusCode == 401) throw new EasAuthException();
 
+        var responseBytes = await resp.Content.ReadAsByteArrayAsync();
+
         if (!resp.IsSuccessStatusCode)
-        {
-            var text = await resp.Content.ReadAsStringAsync();
             throw new HttpRequestException(
                 $"HTTP {(int)resp.StatusCode} for Cmd={cmd}: " +
-                text[..Math.Min(300, text.Length)]);
-        }
+                Encoding.UTF8.GetString(responseBytes)[..Math.Min(300, responseBytes.Length)]);
 
-        var responseBody = await resp.Content.ReadAsStringAsync();
-        return string.IsNullOrWhiteSpace(responseBody) ? null : XElement.Parse(responseBody);
+        if (responseBytes.Length == 0) return null;
+
+        if (_v >= 3) Log($"\n  resp-hex: {Convert.ToHexString(responseBytes)}\n");
+
+        var decoded = EasWbxml.Decode(responseBytes);
+        if (_v >= 3) Log($"{decoded}\n");
+        return decoded;
+    }
+
+    private static void Log(string msg)
+    {
+        var prev = Console.ForegroundColor;
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine(msg);
+        Console.ForegroundColor = prev;
     }
 
     // ── Helper methods ───────────────────────────────────────────────────────
