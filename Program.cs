@@ -37,6 +37,19 @@ class Program
         // Prompt for missing required fields interactively
         easCfg = PromptMissingFields(easCfg);
 
+        // ── Confirm before sending any request ───────────────────────────────
+        Console.WriteLine($"Server:   {easCfg.ServerUrl}");
+        Console.WriteLine($"User:     {easCfg.Username}");
+        Console.WriteLine($"Device:   {EasArchiver.DeviceId}");
+        Console.Write("\nProceed? [y/N] ");
+        var answer = Console.ReadLine()?.Trim().ToLower();
+        if (answer != "y" && answer != "yes")
+        {
+            Console.WriteLine("Aborted.");
+            return 0;
+        }
+        Console.WriteLine();
+
         // ── Load sync state ──────────────────────────────────────────────────
         var state = LoadState(StateFile);
 

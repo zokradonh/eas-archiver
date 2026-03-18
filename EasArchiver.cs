@@ -85,10 +85,6 @@ public class EasArchiver
 
     public async Task RunAsync(SyncState state)
     {
-        Console.WriteLine($"Server:    {_cfg.ServerUrl}");
-        Console.WriteLine($"User:      {_cfg.Username}");
-        Console.WriteLine($"Device ID: {DeviceId}\n");
-
         Console.WriteLine("1/3  Provisioning …");
         await ProvisionAsync();
 
