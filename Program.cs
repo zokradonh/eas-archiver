@@ -9,7 +9,9 @@ namespace EasArchiver;
 
 class Program
 {
-    private const string StateFile = "eas_sync_state.json";
+    private static readonly string StateFile = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "EasArchiver", "eas_sync_state.json");
 
     static async Task<int> Main(string[] args)
     {
@@ -64,6 +66,11 @@ class Program
             await archiver.RunAsync(state);
             SaveState(StateFile, state);
             Console.WriteLine($"\nArchive: {Path.GetFullPath(easCfg.ArchiveDirectory)}");
+            return 0;
+        }
+        catch (OperationCanceledException ex)
+        {
+            Console.WriteLine($"\n{ex.Message}");
             return 0;
         }
         catch (EasQuarantineException ex)
@@ -169,6 +176,7 @@ class Program
 
     private static void SaveState(string path, SyncState state)
     {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path,
             JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true }));
     }

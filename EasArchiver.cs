@@ -64,6 +64,7 @@ public class EasArchiver
     private readonly EasConfig  _cfg;
     private readonly HttpClient _http;
     private readonly int        _v; // verbosity 0-3
+    private int _requestCount = 0;
 
     public EasArchiver(EasConfig cfg)
     {
@@ -284,6 +285,22 @@ public class EasArchiver
             $"{_cfg.ServerUrl.TrimEnd('/')}/" +
             $"?Cmd={cmd}&User={Uri.EscapeDataString(_cfg.Username)}" +
             $"&DeviceId={DeviceId}&DeviceType={DeviceType}";
+
+        // ── Rate limit: 200 ms between requests ──────────────────────────────
+        if (_requestCount > 0)
+            await Task.Delay(200);
+
+        // ── Confirm every 5 requests ─────────────────────────────────────────
+        if (_requestCount > 0 && _requestCount % 5 == 0)
+        {
+            Console.Write($"\n[{_requestCount} requests sent] Continue? [Y/n] ");
+            var ans = Console.ReadLine()?.Trim().ToLower();
+            if (ans == "n" || ans == "no")
+                throw new OperationCanceledException("Aborted by user after rate-limit prompt.");
+            Console.WriteLine();
+        }
+
+        _requestCount++;
 
         var wbxmlBytes = EasWbxml.Encode(body);
         var content    = new ByteArrayContent(wbxmlBytes);
