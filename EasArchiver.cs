@@ -30,21 +30,23 @@ public class EasArchiver
     private const string EasVersion = "14.1";
     private const string DeviceType = "WindowsPC";
 
+    // Platform-aware app data directory
+    public static readonly string AppDataDir = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EasArchiver")
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".eas-archiver");
+
     // Stable device ID – generated once and persisted locally
     public static readonly string DeviceId = LoadOrCreateDeviceId();
 
     private static string LoadOrCreateDeviceId()
     {
-        var dir = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EasArchiver")
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".eas-archiver");
-        var file = Path.Combine(dir, "device-id");
+        var file = Path.Combine(AppDataDir, "device-id");
         if (File.Exists(file))
         {
             var stored = File.ReadAllText(file).Trim();
             if (!string.IsNullOrEmpty(stored)) return stored;
         }
-        Directory.CreateDirectory(dir);
+        Directory.CreateDirectory(AppDataDir);
         var id = Guid.NewGuid().ToString("N");
         File.WriteAllText(file, id);
         return id;

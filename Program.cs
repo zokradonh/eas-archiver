@@ -10,8 +10,7 @@ namespace EasArchiver;
 class Program
 {
     private static readonly string StateFile = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "EasArchiver", "eas_sync_state.json");
+        EasArchiver.AppDataDir, "eas_sync_state.json");
 
     static async Task<int> Main(string[] args)
     {
