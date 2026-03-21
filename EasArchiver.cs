@@ -153,6 +153,7 @@ public class EasArchiver
     {
         var syncKey = state.FolderSyncKey ?? "0";
         var folders = new Dictionary<string, string>(); // id → display name
+        bool retried = false;
 
         while (true)
         {
@@ -163,6 +164,15 @@ public class EasArchiver
             if (root is null) break;
 
             var status = root.Descendants(NsFolderHier + "Status").FirstOrDefault()?.Value;
+
+            // Status 9/165 = invalid SyncKey → reset and retry once
+            if (status is "9" or "165" && !retried)
+            {
+                syncKey = "0";
+                state.FolderSyncKey = null;
+                retried = true;
+                continue;
+            }
             if (status is not null && status != "1")
                 throw new InvalidOperationException($"FolderSync failed – Status={status}");
 
@@ -199,12 +209,25 @@ public class EasArchiver
 
         var syncKey = state.FolderKeys.GetValueOrDefault(folderId, "0");
         int totalNew = 0;
+        bool retried = false;
 
         while (true)
         {
             var request = BuildSyncRequest(folderId, syncKey);
             var root    = await PostAsync("Sync", request);
             if (root is null) break;
+
+            var status = root.Descendants(NsAirSync + "Status").FirstOrDefault()?.Value;
+
+            // Status 4 = protocol error, 3/165 = invalid SyncKey → reset and retry once
+            if (status is "3" or "4" or "165" && !retried)
+            {
+                syncKey = "0";
+                state.FolderKeys.Remove(folderId);
+                retried = true;
+                continue;
+            }
+            if (status is not null && status != "1") break;
 
             var newKey = root.Descendants(NsAirSync + "SyncKey").FirstOrDefault()?.Value;
             if (newKey is not null)
@@ -213,8 +236,8 @@ public class EasArchiver
                 state.FolderKeys[folderId] = newKey;
             }
 
-            var status = root.Descendants(NsAirSync + "Status").FirstOrDefault()?.Value;
-            if (status is not null && status != "1") break;
+            // SyncKey=0 response only provides a key, no data — continue to fetch
+            if (syncKey != "0" && retried) retried = false;
 
             var commands = root.Descendants(NsAirSync + "Commands").FirstOrDefault();
             if (commands is null) break;
@@ -231,23 +254,33 @@ public class EasArchiver
         return totalNew;
     }
 
-    private XElement BuildSyncRequest(string collectionId, string syncKey) =>
-        new XElement(NsAirSync + "Sync",
-            new XAttribute(XNamespace.Xmlns + "Email",        NsEmail.NamespaceName),
-            new XAttribute(XNamespace.Xmlns + "AirSyncBase",  NsAirSyncBase.NamespaceName),
-            new XElement(NsAirSync + "Collections",
-                new XElement(NsAirSync + "Collection",
-                    Xml(NsAirSync + "SyncKey",       syncKey),
-                    Xml(NsAirSync + "CollectionId",  collectionId),
-                    Xml(NsAirSync + "DeletesAsMoves","0"),
-                    Xml(NsAirSync + "GetChanges",    "1"),
-                    Xml(NsAirSync + "WindowSize",    _cfg.WindowSize.ToString()),
-                    new XElement(NsAirSync + "Options",
-                        Xml(NsAirSync + "MIMESupport",     "2"),  // 2 = MIME preferred
-                        Xml(NsAirSync + "MIMETruncation",  "8"),  // 8 = no truncation
-                        new XElement(NsAirSyncBase + "BodyPreference",
-                            Xml(NsAirSyncBase + "Type",     "4"), // 4 = MIME (preferred)
-                            Xml(NsAirSyncBase + "AllOrNone","1"))))));
+    private XElement BuildSyncRequest(string collectionId, string syncKey)
+    {
+        // SyncKey=0 is the initialisation request – only SyncKey + CollectionId allowed.
+        // GetChanges, Options etc. must NOT be sent until the server has issued a real key.
+        var collection = new XElement(NsAirSync + "Collection",
+            Xml(NsAirSync + "SyncKey",      syncKey),
+            Xml(NsAirSync + "CollectionId", collectionId));
+
+        if (syncKey != "0")
+        {
+            collection.Add(
+                Xml(NsAirSync + "DeletesAsMoves", "0"),
+                Xml(NsAirSync + "GetChanges",     "1"),
+                Xml(NsAirSync + "WindowSize",     _cfg.WindowSize.ToString()),
+                new XElement(NsAirSync + "Options",
+                    Xml(NsAirSync + "MIMESupport",    "2"),
+                    Xml(NsAirSync + "MIMETruncation", "8"),
+                    new XElement(NsAirSyncBase + "BodyPreference",
+                        Xml(NsAirSyncBase + "Type",     "4"),
+                        Xml(NsAirSyncBase + "AllOrNone", "1"))));
+        }
+
+        return new XElement(NsAirSync + "Sync",
+            new XAttribute(XNamespace.Xmlns + "Email",       NsEmail.NamespaceName),
+            new XAttribute(XNamespace.Xmlns + "AirSyncBase", NsAirSyncBase.NamespaceName),
+            new XElement(NsAirSync + "Collections", collection));
+    }
     // ── Save email as .eml ───────────────────────────────────────────────────
 
     private async Task<bool> SaveEmailAsync(XElement addEl, string folderPath)
