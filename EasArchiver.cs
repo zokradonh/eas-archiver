@@ -187,7 +187,11 @@ public class EasArchiver
             {
                 var id   = add.Element(NsFolderHier + "ServerId")?.Value;
                 var name = add.Element(NsFolderHier + "DisplayName")?.Value;
-                if (id is not null && name is not null)
+                var type = add.Element(NsFolderHier + "Type")?.Value;
+                // Only include email folder types:
+                // 1=User mail, 2=Inbox, 3=Drafts, 4=Deleted, 5=Sent, 6=Outbox, 12=User mail
+                if (id is not null && name is not null
+                    && type is "1" or "2" or "3" or "4" or "5" or "6" or "12")
                     folders[id] = name;
             }
 
@@ -236,11 +240,13 @@ public class EasArchiver
                 state.FolderKeys[folderId] = newKey;
             }
 
-            // SyncKey=0 response only provides a key, no data — continue to fetch
-            if (syncKey != "0" && retried) retried = false;
-
             var commands = root.Descendants(NsAirSync + "Commands").FirstOrDefault();
-            if (commands is null) break;
+            if (commands is null)
+            {
+                // SyncKey=0 response only provides a key, no data — continue to fetch
+                if (syncKey != "0") continue;
+                break;
+            }
 
             foreach (var add in commands.Elements(NsAirSync + "Add"))
                 if (await SaveEmailAsync(add, folderPath))
