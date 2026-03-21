@@ -74,7 +74,8 @@ public class EasArchiver
         _cfg = cfg;
         _v   = cfg.Verbosity;
 
-        _http = new HttpClient();
+        var handler = new HttpClientHandler { CookieContainer = new System.Net.CookieContainer() };
+        _http = new HttpClient(handler);
         _http.DefaultRequestHeaders.Add("MS-ASProtocolVersion", EasVersion);
         _http.DefaultRequestHeaders.TryAddWithoutValidation(
             "User-Agent",
