@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using Serilog;
 
 namespace EasArchiver;
 
@@ -88,25 +89,25 @@ public class EasArchiver
 
     public async Task RunAsync(SyncState state)
     {
-        Console.WriteLine("1/3  Provisioning …");
+        Log.Information("1/3  Provisioning …");
         await ProvisionAsync();
 
-        Console.WriteLine("2/3  Fetching folder structure …");
+        Log.Information("2/3  Fetching folder structure …");
         var folders = await FolderSyncAsync(state);
-        Console.WriteLine($"     {folders.Count} folders found.\n");
+        Log.Information("     {Count} folders found.\n", folders.Count);
 
-        Console.WriteLine("3/3  Synchronizing emails …");
+        Log.Information("3/3  Synchronizing emails …");
         int totalNew = 0;
 
         foreach (var (id, name) in folders)
         {
-            Console.Write($"     {name,-45}");
             int count = await SyncFolderAsync(id, name, state);
-            Console.WriteLine(count > 0 ? $"{count,4} new mail(s)" : "   –");
+            Log.Information("     {FolderName,-45}{Result}", name,
+                count > 0 ? $"{count,4} new mail(s)" : "   –");
             totalNew += count;
         }
 
-        Console.WriteLine($"\n     Total: {totalNew} new email(s) archived.");
+        Log.Information("\n     Total: {TotalNew} new email(s) archived.", totalNew);
     }
 
     // ── Step 1: Provisioning ─────────────────────────────────────────────────
@@ -144,7 +145,7 @@ public class EasArchiver
         _http.DefaultRequestHeaders.Remove("X-MS-PolicyKey");
         _http.DefaultRequestHeaders.Add("X-MS-PolicyKey", finalKey);
 
-        Console.WriteLine($"     Policy-Key: {finalKey}");
+        Log.Information("     Policy-Key: {PolicyKey}", finalKey);
     }
 
     // ── Step 2: FolderSync ───────────────────────────────────────────────────
@@ -360,26 +361,26 @@ public class EasArchiver
         content.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.ms-sync.wbxml");
 
         // ── Verbosity: Request ────────────────────────────────────────────────
-        if (_v >= 1) Log($"→ POST {url}");
+        if (_v >= 1) Log.Debug("→ POST {Url}", url);
         if (_v >= 2)
         {
             foreach (var h in _http.DefaultRequestHeaders)
-                Log($"  {h.Key}: {string.Join(", ", h.Value)}");
-            Log($"  Content-Type: {content.Headers.ContentType}");
-            Log($"  Content-Length: {wbxmlBytes.Length}");
+                Log.Debug("  {Key}: {Value}", h.Key, string.Join(", ", h.Value));
+            Log.Debug("  Content-Type: {ContentType}", content.Headers.ContentType);
+            Log.Debug("  Content-Length: {Length}", wbxmlBytes.Length);
         }
-        if (_v >= 3) Log($"\n  req-hex: {Convert.ToHexString(wbxmlBytes)}\n{body}\n");
+        if (_v >= 3) Log.Debug("\n  req-hex: {Hex}\n{Body}\n", Convert.ToHexString(wbxmlBytes), body);
 
         var resp = await _http.PostAsync(url, content);
 
         // ── Verbosity: Response ───────────────────────────────────────────────
-        if (_v >= 1) Log($"← {(int)resp.StatusCode} {resp.ReasonPhrase}");
+        if (_v >= 1) Log.Debug("← {StatusCode} {Reason}", (int)resp.StatusCode, resp.ReasonPhrase);
         if (_v >= 2)
         {
             foreach (var h in resp.Headers)
-                Log($"  {h.Key}: {string.Join(", ", h.Value)}");
+                Log.Debug("  {Key}: {Value}", h.Key, string.Join(", ", h.Value));
             foreach (var h in resp.Content.Headers)
-                Log($"  {h.Key}: {string.Join(", ", h.Value)}");
+                Log.Debug("  {Key}: {Value}", h.Key, string.Join(", ", h.Value));
         }
 
         if ((int)resp.StatusCode == 449) throw new EasQuarantineException(DeviceId);
@@ -394,19 +395,11 @@ public class EasArchiver
 
         if (responseBytes.Length == 0) return null;
 
-        if (_v >= 3) Log($"\n  resp-hex: {Convert.ToHexString(responseBytes)}\n");
+        if (_v >= 3) Log.Debug("\n  resp-hex: {Hex}\n", Convert.ToHexString(responseBytes));
 
         var decoded = EasWbxml.Decode(responseBytes);
-        if (_v >= 3) Log($"{decoded}\n");
+        if (_v >= 3) Log.Debug("{Decoded}\n", decoded);
         return decoded;
-    }
-
-    private static void Log(string msg)
-    {
-        var prev = Console.ForegroundColor;
-        Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine(msg);
-        Console.ForegroundColor = prev;
     }
 
     // ── Helper methods ───────────────────────────────────────────────────────

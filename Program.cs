@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
+using Serilog;
 
 namespace EasArchiver;
 
@@ -12,10 +13,24 @@ class Program
     private static readonly string StateFile = Path.Combine(
         EasArchiver.AppDataDir, "eas_sync_state.json");
 
+    private static readonly string LogFile = Path.Combine(
+        EasArchiver.AppDataDir, "eas-archiver.log");
+
     static async Task<int> Main(string[] args)
     {
         Console.OutputEncoding = Encoding.UTF8;
-        Console.WriteLine("=== EAS Email Archiver ===\n");
+
+        Directory.CreateDirectory(EasArchiver.AppDataDir);
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.Console(outputTemplate: "{Message:lj}{NewLine}{Exception}")
+            .WriteTo.File(LogFile,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 14)
+            .CreateLogger();
+
+        Log.Information("=== EAS Email Archiver ===\n");
 
         // ── Test mode ────────────────────────────────────────────────────────
         if (args.Contains("--test"))
@@ -43,17 +58,17 @@ class Program
         easCfg = PromptMissingFields(easCfg);
 
         // ── Confirm before sending any request ───────────────────────────────
-        Console.WriteLine($"Server:   {easCfg.ServerUrl}");
-        Console.WriteLine($"User:     {easCfg.Username}");
-        Console.WriteLine($"Device:   {EasArchiver.DeviceId}");
+        Log.Information("Server:   {ServerUrl}", easCfg.ServerUrl);
+        Log.Information("User:     {Username}", easCfg.Username);
+        Log.Information("Device:   {DeviceId}", EasArchiver.DeviceId);
         Console.Write("\nProceed? [y/N] ");
         var answer = Console.ReadLine()?.Trim().ToLower();
         if (answer != "y" && answer != "yes")
         {
-            Console.WriteLine("Aborted.");
+            Log.Information("Aborted.");
             return 0;
         }
-        Console.WriteLine();
+        Log.Information("");
 
         // ── Load sync state ──────────────────────────────────────────────────
         var state = LoadState(StateFile);
@@ -64,37 +79,35 @@ class Program
         {
             await archiver.RunAsync(state);
             SaveState(StateFile, state);
-            Console.WriteLine($"\nArchive: {Path.GetFullPath(easCfg.ArchiveDirectory)}");
+            Log.Information("\nArchive: {ArchiveDir}", Path.GetFullPath(easCfg.ArchiveDirectory));
             return 0;
         }
         catch (OperationCanceledException ex)
         {
-            Console.WriteLine($"\n{ex.Message}");
+            Log.Information("\n{Message}", ex.Message);
             return 0;
         }
         catch (EasQuarantineException ex)
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"\n⚠  Device not yet approved (HTTP 449 – Quarantine).");
-            Console.WriteLine($"   Device ID for approval: {ex.DeviceId}");
-            Console.WriteLine("   Please restart after the admin has approved the device.");
-            Console.ResetColor();
+            Log.Warning("\nDevice not yet approved (HTTP 449 – Quarantine).");
+            Log.Warning("   Device ID for approval: {DeviceId}", ex.DeviceId);
+            Log.Warning("   Please restart after the admin has approved the device.");
             return 2;
         }
         catch (EasAuthException)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("\n✗  Authentication failed (HTTP 401).");
-            Console.WriteLine("   Please check username/password in appsettings.json.");
-            Console.ResetColor();
+            Log.Error("\nAuthentication failed (HTTP 401).");
+            Log.Error("   Please check username/password in appsettings.json.");
             return 1;
         }
         catch (Exception ex)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"\n✗  Error: {ex.Message}");
-            Console.ResetColor();
+            Log.Fatal(ex, "Unhandled error");
             return 1;
+        }
+        finally
+        {
+            await Log.CloseAndFlushAsync();
         }
     }
 
