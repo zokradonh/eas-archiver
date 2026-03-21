@@ -150,27 +150,39 @@ public class EasArchiver
     private async Task<Dictionary<string, string>> FolderSyncAsync(SyncState state)
     {
         var syncKey = state.FolderSyncKey ?? "0";
-
-        var request = Xml(NsFolderHier + "FolderSync",
-            Xml(NsFolderHier + "SyncKey", syncKey));
-
-        var root = await PostAsync("FolderSync", request);
         var folders = new Dictionary<string, string>(); // id → display name
-        if (root is null) return folders;
 
-        var status = root.Descendants(NsFolderHier + "Status").FirstOrDefault()?.Value;
-        if (status is not null && status != "1")
-            throw new InvalidOperationException($"FolderSync failed – Status={status}");
-
-        var newKey = root.Descendants(NsFolderHier + "SyncKey").FirstOrDefault()?.Value;
-        if (newKey is not null) state.FolderSyncKey = newKey;
-
-        foreach (var add in root.Descendants(NsFolderHier + "Add"))
+        while (true)
         {
-            var id   = add.Element(NsFolderHier + "ServerId")?.Value;
-            var name = add.Element(NsFolderHier + "DisplayName")?.Value;
-            if (id is not null && name is not null)
-                folders[id] = name;
+            var request = Xml(NsFolderHier + "FolderSync",
+                Xml(NsFolderHier + "SyncKey", syncKey));
+
+            var root = await PostAsync("FolderSync", request);
+            if (root is null) break;
+
+            var status = root.Descendants(NsFolderHier + "Status").FirstOrDefault()?.Value;
+            if (status is not null && status != "1")
+                throw new InvalidOperationException($"FolderSync failed – Status={status}");
+
+            var newKey = root.Descendants(NsFolderHier + "SyncKey").FirstOrDefault()?.Value;
+            if (newKey is not null)
+            {
+                syncKey = newKey;
+                state.FolderSyncKey = newKey;
+            }
+
+            foreach (var add in root.Descendants(NsFolderHier + "Add"))
+            {
+                var id   = add.Element(NsFolderHier + "ServerId")?.Value;
+                var name = add.Element(NsFolderHier + "DisplayName")?.Value;
+                if (id is not null && name is not null)
+                    folders[id] = name;
+            }
+
+            // MoreAvailable → another page of folders; also loop once after SyncKey=0
+            if (root.Descendants(NsFolderHier + "MoreAvailable").FirstOrDefault() is null
+                && syncKey != "0")
+                break;
         }
 
         return folders;
@@ -290,8 +302,8 @@ public class EasArchiver
         if (_requestCount > 0)
             await Task.Delay(200);
 
-        // ── Confirm every 5 requests ─────────────────────────────────────────
-        if (_requestCount > 0 && _requestCount % 5 == 0)
+        // ── Confirm every 2 requests ─────────────────────────────────────────
+        if (_requestCount > 0 && _requestCount % 2 == 0)
         {
             Console.Write($"\n[{_requestCount} requests sent] Continue? [Y/n] ");
             var ans = Console.ReadLine()?.Trim().ToLower();
