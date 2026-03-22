@@ -66,6 +66,7 @@ public class EasArchiver
     // ── Fields ────────────────────────────────────────────────────────────────
     private readonly EasConfig  _cfg;
     private readonly HttpClient _http;
+    private readonly HttpClientHandler _handler;
     private readonly int        _v; // verbosity 0-3
     private int _requestCount = 0;
 
@@ -74,8 +75,8 @@ public class EasArchiver
         _cfg = cfg;
         _v   = cfg.Verbosity;
 
-        var handler = new HttpClientHandler { CookieContainer = new System.Net.CookieContainer() };
-        _http = new HttpClient(handler);
+        _handler = new HttpClientHandler { CookieContainer = new System.Net.CookieContainer() };
+        _http = new HttpClient(_handler);
         _http.DefaultRequestHeaders.Add("MS-ASProtocolVersion", EasVersion);
         _http.DefaultRequestHeaders.TryAddWithoutValidation(
             "User-Agent",
@@ -369,6 +370,9 @@ public class EasArchiver
                 Log.Debug("  {Key}: {Value}", h.Key, string.Join(", ", h.Value));
             Log.Debug("  Content-Type: {ContentType}", content.Headers.ContentType);
             Log.Debug("  Content-Length: {Length}", wbxmlBytes.Length);
+            var cookies = _handler.CookieContainer.GetCookieHeader(new Uri(url));
+            if (!string.IsNullOrEmpty(cookies))
+                Log.Debug("  Cookie: {Cookie}", cookies);
         }
         if (_v >= 3) Log.Debug("\n  req-hex: {Hex}\n{Body}\n", Convert.ToHexString(wbxmlBytes), body);
 
