@@ -77,6 +77,16 @@ internal static class WbxmlTests
                       .Element(NsFolderHier + "DisplayName")?.Value == "RecipientInfo",
             ref pass, ref fail);
 
+        // ── Large response from file ─────────────────────────────────────────
+        var hexFile = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "biganswer.hex");
+        if (File.Exists(hexFile))
+        {
+            Test("BigAnswer: decode 116KB Sync response",
+                File.ReadAllText(hexFile).Trim(),
+                xml => xml.Name.LocalName == "Sync",
+                ref pass, ref fail);
+        }
+
         // ── Round-trip: Encode → Decode ───────────────────────────────────────
         Test("Round-trip: FolderSync request encode/decode",
             roundTrip: true,

@@ -23,6 +23,7 @@ internal static class EasWbxml
     private const string NsFolderHier  = "FolderHierarchy:";
     private const string NsProvision   = "Provision:";
     private const string NsAirSyncBase = "AirSyncBase:";
+    private const string NsEmail2     = "Email2:";
 
     // (namespace, localName) → (codepage, token)
     private static readonly Dictionary<(string, string), (byte page, byte tok)> EncodeMap;
@@ -74,13 +75,13 @@ internal static class EasWbxml
 
             // ── Codepage 2: Email ────────────────────────────────────────────
             (NsEmail, "Attachment",      2, 0x05),
-            (NsEmail, "Attachments",     2, 0x06),
+            (NsEmail, "Attachments",     2, 0x06),  // deprecated 12.0+, use AirSyncBase
             (NsEmail, "AttName",         2, 0x07),
             (NsEmail, "AttSize",         2, 0x08),
             (NsEmail, "Att0Id",          2, 0x09),
             (NsEmail, "AttMethod",       2, 0x0A),
-            (NsEmail, "AttRemoved",      2, 0x0B),
-            (NsEmail, "Body",            2, 0x0C),
+            // 0x0B not used
+            (NsEmail, "Body",            2, 0x0C),  // deprecated 12.0+, use AirSyncBase
             (NsEmail, "BodySize",        2, 0x0D),
             (NsEmail, "BodyTruncated",   2, 0x0E),
             (NsEmail, "DateReceived",    2, 0x0F),
@@ -101,22 +102,37 @@ internal static class EasWbxml
             (NsEmail, "EndTime",         2, 0x1E),
             (NsEmail, "InstanceType",    2, 0x1F),
             (NsEmail, "BusyStatus",      2, 0x20),
-            (NsEmail, "OrganizerName",   2, 0x21),
-            (NsEmail, "OrganizerEmail",  2, 0x22),
-            (NsEmail, "NativeBodyType",  2, 0x23),
-            (NsEmail, "TimeZone",        2, 0x24),
-            (NsEmail, "GlobalObjId",     2, 0x25),
-            (NsEmail, "ThreadTopic",     2, 0x26),
-            (NsEmail, "MIMEData",        2, 0x27),
-            (NsEmail, "MIMESize",        2, 0x28),
-            (NsEmail, "MIMETruncated",   2, 0x29),
-            (NsEmail, "InternetCPID",    2, 0x2A),
-            (NsEmail, "Flag",            2, 0x2B),
-            (NsEmail, "Status",          2, 0x2C),
-            (NsEmail, "ContentClass",    2, 0x2D),
-            (NsEmail, "FlagType",        2, 0x2E),
-            (NsEmail, "CompleteTime",    2, 0x2F),
-            (NsEmail, "DisallowNewTimeProposal", 2, 0x30),
+            (NsEmail, "Location",        2, 0x21),  // deprecated 16.0+, use AirSyncBase
+            (NsEmail, "MeetingRequest",  2, 0x22),
+            (NsEmail, "Organizer",       2, 0x23),
+            (NsEmail, "RecurrenceId",    2, 0x24),
+            (NsEmail, "Reminder",        2, 0x25),
+            (NsEmail, "ResponseRequested", 2, 0x26),
+            (NsEmail, "Recurrences",     2, 0x27),
+            (NsEmail, "Recurrence",      2, 0x28),
+            (NsEmail, "Type",            2, 0x29),
+            (NsEmail, "Until",           2, 0x2A),
+            (NsEmail, "Occurrences",     2, 0x2B),
+            (NsEmail, "Interval",        2, 0x2C),
+            (NsEmail, "DayOfWeek",       2, 0x2D),
+            (NsEmail, "DayOfMonth",      2, 0x2E),
+            (NsEmail, "WeekOfMonth",     2, 0x2F),
+            (NsEmail, "MonthOfYear",     2, 0x30),
+            (NsEmail, "StartTime",       2, 0x31),
+            (NsEmail, "Sensitivity",     2, 0x32),
+            (NsEmail, "TimeZone",        2, 0x33),
+            (NsEmail, "GlobalObjId",     2, 0x34),
+            (NsEmail, "ThreadTopic",     2, 0x35),
+            (NsEmail, "MIMEData",        2, 0x36),
+            (NsEmail, "MIMETruncated",   2, 0x37),
+            (NsEmail, "MIMESize",        2, 0x38),
+            (NsEmail, "InternetCPID",    2, 0x39),
+            (NsEmail, "Flag",            2, 0x3A),
+            (NsEmail, "Status",          2, 0x3B),
+            (NsEmail, "ContentClass",    2, 0x3C),
+            (NsEmail, "FlagType",        2, 0x3D),
+            (NsEmail, "CompleteTime",    2, 0x3E),
+            (NsEmail, "DisallowNewTimeProposal", 2, 0x3F),
 
             // ── Codepage 7: FolderHierarchy ──────────────────────────────────
             (NsFolderHier, "Folders",      7, 0x05),
@@ -210,6 +226,27 @@ internal static class EasWbxml
             (NsAirSyncBase, "BodyPartPreference",17, 0x19),
             (NsAirSyncBase, "BodyPart",          17, 0x1A),
             (NsAirSyncBase, "Status",            17, 0x1B),
+
+            // ── Codepage 22: Email2 ─────────────────────────────────────────
+            (NsEmail2, "UmCallerID",            22, 0x05),
+            (NsEmail2, "UmUserNotes",           22, 0x06),
+            (NsEmail2, "UmAttDuration",         22, 0x07),
+            (NsEmail2, "UmAttOrder",            22, 0x08),
+            (NsEmail2, "ConversationId",        22, 0x09),
+            (NsEmail2, "ConversationIndex",     22, 0x0A),
+            (NsEmail2, "LastVerbExecuted",      22, 0x0B),
+            (NsEmail2, "LastVerbExecutionTime", 22, 0x0C),
+            (NsEmail2, "ReceivedAsBcc",         22, 0x0D),
+            (NsEmail2, "Sender",                22, 0x0E),
+            (NsEmail2, "CalendarType",          22, 0x0F),
+            (NsEmail2, "IsLeapMonth",           22, 0x10),
+            (NsEmail2, "AccountId",             22, 0x11),
+            (NsEmail2, "FirstDayOfWeek",        22, 0x12),
+            (NsEmail2, "MeetingMessageType",    22, 0x13),
+            // 0x14 not used
+            (NsEmail2, "IsDraft",               22, 0x15),
+            (NsEmail2, "Bcc",                   22, 0x16),
+            (NsEmail2, "Send",                  22, 0x17),
         };
 
         EncodeMap = new(defs.Length);
