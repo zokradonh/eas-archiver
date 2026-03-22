@@ -434,7 +434,8 @@ public class EasArchiver
     private static string BuildEmlPath(string folder, string serverId, string subject, string dateStr)
     {
         var safeDate    = Sanitize(dateStr.Length >= 10 ? dateStr[..10] : dateStr);
-        var safeSubject = Sanitize(subject)[..Math.Min(60, subject.Length)];
+        var safeSubject = Sanitize(subject);
+        safeSubject = safeSubject[..Math.Min(60, safeSubject.Length)];
         var hash        = Convert.ToHexString(
                               MD5.HashData(Encoding.UTF8.GetBytes(serverId))
                           )[..8].ToLower();
