@@ -116,19 +116,43 @@ public class EasArchiver
 
     private async Task ProvisionAsync()
     {
+        // Phase 1: Request the policy. Send PolicyKey=0 to signal "I have no key yet".
         var request = Xml(NsProvision + "Provision",
             Xml(NsProvision + "Policies",
                 Xml(NsProvision + "Policy",
-                    Xml(NsProvision + "PolicyType", "MS-EAS-Provisioning-WBXML"))));
+                    Xml(NsProvision + "PolicyType", "MS-EAS-Provisioning-WBXML"),
+                    Xml(NsProvision + "PolicyKey",  "0"))));
 
         var root = await PostAsync("Provision", request);
         if (root is null) return;
 
+        var status = root.Descendants(NsProvision + "Status").FirstOrDefault()?.Value;
+
+        // Status 165 = server requires provisioning but we sent no/invalid key.
+        // Retry once with a fresh request (already sending PolicyKey=0 above).
+        if (status is "165")
+        {
+            // Some servers need a bare request first, then accept PolicyKey=0
+            request = Xml(NsProvision + "Provision",
+                Xml(NsProvision + "Policies",
+                    Xml(NsProvision + "Policy",
+                        Xml(NsProvision + "PolicyType", "MS-EAS-Provisioning-WBXML"))));
+            root = await PostAsync("Provision", request);
+            if (root is null) return;
+        }
+
         var policyKey = root.Descendants(NsProvision + "PolicyKey")
                             .FirstOrDefault()?.Value;
-        if (policyKey is null) return;
+        if (policyKey is null)
+        {
+            Log.Warning("     Provision: no PolicyKey received (Status={Status})",
+                root.Descendants(NsProvision + "Status").FirstOrDefault()?.Value);
+            return;
+        }
 
-        // Acknowledge – confirm to server as "compliant"
+        Log.Debug("     Provision phase 1: temporary PolicyKey={PolicyKey}", policyKey);
+
+        // Phase 2: Acknowledge – confirm to server as "compliant"
         var ack = Xml(NsProvision + "Provision",
             Xml(NsProvision + "Policies",
                 Xml(NsProvision + "Policy",
@@ -136,13 +160,15 @@ public class EasArchiver
                     Xml(NsProvision + "PolicyKey",   policyKey),
                     Xml(NsProvision + "Status",      "1"))));
 
-        var ackRoot   = await PostAsync("Provision", ack);
+        // Must send the temporary key with the acknowledge request
+        _http.DefaultRequestHeaders.Remove("X-MS-PolicyKey");
+        _http.DefaultRequestHeaders.Add("X-MS-PolicyKey", policyKey);
+
+        var ackRoot = await PostAsync("Provision", ack);
 
         // The server returns a final policy key in the acknowledgement response.
-        // All subsequent requests MUST carry X-MS-PolicyKey with this value,
-        // otherwise FolderSync (and Sync) silently returns empty results.
-        var finalKey  = ackRoot?.Descendants(NsProvision + "PolicyKey")
-                                .FirstOrDefault()?.Value ?? policyKey;
+        var finalKey = ackRoot?.Descendants(NsProvision + "PolicyKey")
+                               .FirstOrDefault()?.Value ?? policyKey;
 
         _http.DefaultRequestHeaders.Remove("X-MS-PolicyKey");
         _http.DefaultRequestHeaders.Add("X-MS-PolicyKey", finalKey);
