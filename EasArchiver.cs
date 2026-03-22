@@ -396,6 +396,17 @@ public class EasArchiver
 
         if (responseBytes.Length == 0) return null;
 
+        // Save Sync response blobs as hex files for debugging
+        if (cmd == "Sync" && responseBytes.Length > 5000)
+        {
+            var blobDir = Path.Combine(AppDataDir, "debug", "syncblobs");
+            Directory.CreateDirectory(blobDir);
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
+            var blobPath = Path.Combine(blobDir, $"{timestamp}_{_requestCount}.hex");
+            await File.WriteAllTextAsync(blobPath, Convert.ToHexString(responseBytes));
+            Log.Debug("  Sync blob saved: {Path}", blobPath);
+        }
+
         if (_v >= 3) Log.Debug("\n  resp-hex: {Hex}\n", Convert.ToHexString(responseBytes));
 
         var decoded = EasWbxml.Decode(responseBytes);
