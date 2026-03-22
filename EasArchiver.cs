@@ -61,7 +61,6 @@ public class EasArchiver
     private static readonly XNamespace NsFolderHier  = "FolderHierarchy:";
     private static readonly XNamespace NsEmail       = "Email:";
     private static readonly XNamespace NsAirSyncBase = "AirSyncBase:";
-    private static readonly XNamespace NsProvision   = "Provision:";
 
     // ── Fields ────────────────────────────────────────────────────────────────
     private readonly EasConfig  _cfg;
@@ -91,14 +90,11 @@ public class EasArchiver
 
     public async Task RunAsync(SyncState state)
     {
-        Log.Information("1/3  Provisioning …");
-        await ProvisionAsync();
-
-        Log.Information("2/3  Fetching folder structure …");
+        Log.Information("1/2  Fetching folder structure …");
         var folders = await FolderSyncAsync(state);
         Log.Information("     {Count} folders found.\n", folders.Count);
 
-        Log.Information("3/3  Archiving emails …");
+        Log.Information("2/2  Archiving emails …");
         int totalNew = 0;
 
         foreach (var (id, name) in folders)
@@ -110,52 +106,6 @@ public class EasArchiver
         }
 
         Log.Information("\n     Total: {TotalNew} new email(s) archived.", totalNew);
-    }
-
-    // ── Step 1: Provisioning ─────────────────────────────────────────────────
-
-    private async Task ProvisionAsync()
-    {
-        // Phase 1: Request the policy (no PolicyKey – initial request per MS-ASPROV)
-        var request = Xml(NsProvision + "Provision",
-            Xml(NsProvision + "Policies",
-                Xml(NsProvision + "Policy",
-                    Xml(NsProvision + "PolicyType", "MS-EAS-Provisioning-WBXML"))));
-
-        var root = await PostAsync("Provision", request);
-        if (root is null) return;
-
-        var policyKey = root.Descendants(NsProvision + "PolicyKey")
-                            .FirstOrDefault()?.Value;
-        if (policyKey is null)
-        {
-            // Server didn't return a PolicyKey (e.g. Status=165).
-            // This is OK – some servers don't enforce provisioning and sync still works.
-            var status = root.Descendants(NsProvision + "Status").FirstOrDefault()?.Value;
-            Log.Information("     Provision: server returned Status={Status}, no PolicyKey – continuing without", status);
-            return;
-        }
-
-        Log.Debug("     Provision phase 1: temporary PolicyKey={PolicyKey}", policyKey);
-
-        // Phase 2: Acknowledge – tell server we accept the policy
-        var ack = Xml(NsProvision + "Provision",
-            Xml(NsProvision + "Policies",
-                Xml(NsProvision + "Policy",
-                    Xml(NsProvision + "PolicyType",  "MS-EAS-Provisioning-WBXML"),
-                    Xml(NsProvision + "PolicyKey",   policyKey),
-                    Xml(NsProvision + "Status",      "1"))));
-
-        var ackRoot = await PostAsync("Provision", ack);
-
-        // The server returns a final policy key in the acknowledgement response.
-        var finalKey = ackRoot?.Descendants(NsProvision + "PolicyKey")
-                               .FirstOrDefault()?.Value ?? policyKey;
-
-        _http.DefaultRequestHeaders.Remove("X-MS-PolicyKey");
-        _http.DefaultRequestHeaders.Add("X-MS-PolicyKey", finalKey);
-
-        Log.Information("     Policy-Key: {PolicyKey}", finalKey);
     }
 
     // ── Step 2: FolderSync ───────────────────────────────────────────────────
