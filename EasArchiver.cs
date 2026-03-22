@@ -368,7 +368,7 @@ public class EasArchiver
         {
             foreach (var h in _http.DefaultRequestHeaders)
                 Log.Debug("  {Key}: {Value}", h.Key, string.Join(", ", h.Value));
-            Log.Debug("  Content-Type: {ContentType}", content.Headers.ContentType);
+            Log.Debug("  Content-Type: {ContentType}", content.Headers.ContentType?.ToString());
             Log.Debug("  Content-Length: {Length}", wbxmlBytes.Length);
             var cookies = _handler.CookieContainer.GetCookieHeader(new Uri(url));
             if (!string.IsNullOrEmpty(cookies))
