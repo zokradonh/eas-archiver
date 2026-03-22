@@ -4,5 +4,7 @@ appsettings.local.json
 bin/
 obj/
 
+mail_archive/
+
 # Sync state
 eas_sync_state.json
