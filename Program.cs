@@ -36,6 +36,26 @@ class Program
         if (args.Contains("--test"))
             return WbxmlTests.RunAll();
 
+        // ── Decode hex file → XML ───────────────────────────────────────────
+        if (args.Length == 2 && args[0] == "--decode")
+        {
+            var hex   = File.ReadAllText(args[1]).Trim();
+            var xml   = EasWbxml.Decode(Convert.FromHexString(hex));
+            var outPath = Path.ChangeExtension(args[1], ".xml");
+            var settings = new System.Xml.XmlWriterSettings
+            {
+                Indent = true,
+                CheckCharacters = false,
+                Encoding = new UTF8Encoding(false),
+            };
+            using var stream = File.Create(outPath);
+            using var writer = System.Xml.XmlWriter.Create(stream, settings);
+            xml.WriteTo(writer);
+            writer.Flush();
+            Console.WriteLine($"Written to {outPath}");
+            return 0;
+        }
+
         // ── Normalize -v / -vv / -vvv → --Eas:Verbosity=N ───────────────────
         args = NormalizeVerbosityArgs(args);
 
