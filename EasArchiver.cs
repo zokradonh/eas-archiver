@@ -116,53 +116,35 @@ public class EasArchiver
 
     private async Task ProvisionAsync()
     {
-        // Phase 1: Request the policy. Send PolicyKey=0 to signal "I have no key yet".
+        // Phase 1: Request the policy (no PolicyKey – initial request per MS-ASPROV)
         var request = Xml(NsProvision + "Provision",
             Xml(NsProvision + "Policies",
                 Xml(NsProvision + "Policy",
-                    Xml(NsProvision + "PolicyType", "MS-EAS-Provisioning-WBXML"),
-                    Xml(NsProvision + "PolicyKey",  "0"))));
+                    Xml(NsProvision + "PolicyType", "MS-EAS-Provisioning-WBXML"))));
 
         var root = await PostAsync("Provision", request);
         if (root is null) return;
-
-        var status = root.Descendants(NsProvision + "Status").FirstOrDefault()?.Value;
-
-        // Status 165 = server requires provisioning but we sent no/invalid key.
-        // Retry once with a fresh request (already sending PolicyKey=0 above).
-        if (status is "165")
-        {
-            // Some servers need a bare request first, then accept PolicyKey=0
-            request = Xml(NsProvision + "Provision",
-                Xml(NsProvision + "Policies",
-                    Xml(NsProvision + "Policy",
-                        Xml(NsProvision + "PolicyType", "MS-EAS-Provisioning-WBXML"))));
-            root = await PostAsync("Provision", request);
-            if (root is null) return;
-        }
 
         var policyKey = root.Descendants(NsProvision + "PolicyKey")
                             .FirstOrDefault()?.Value;
         if (policyKey is null)
         {
-            Log.Warning("     Provision: no PolicyKey received (Status={Status})",
-                root.Descendants(NsProvision + "Status").FirstOrDefault()?.Value);
+            // Server didn't return a PolicyKey (e.g. Status=165).
+            // This is OK – some servers don't enforce provisioning and sync still works.
+            var status = root.Descendants(NsProvision + "Status").FirstOrDefault()?.Value;
+            Log.Information("     Provision: server returned Status={Status}, no PolicyKey – continuing without", status);
             return;
         }
 
         Log.Debug("     Provision phase 1: temporary PolicyKey={PolicyKey}", policyKey);
 
-        // Phase 2: Acknowledge – confirm to server as "compliant"
+        // Phase 2: Acknowledge – tell server we accept the policy
         var ack = Xml(NsProvision + "Provision",
             Xml(NsProvision + "Policies",
                 Xml(NsProvision + "Policy",
                     Xml(NsProvision + "PolicyType",  "MS-EAS-Provisioning-WBXML"),
                     Xml(NsProvision + "PolicyKey",   policyKey),
                     Xml(NsProvision + "Status",      "1"))));
-
-        // Must send the temporary key with the acknowledge request
-        _http.DefaultRequestHeaders.Remove("X-MS-PolicyKey");
-        _http.DefaultRequestHeaders.Add("X-MS-PolicyKey", policyKey);
 
         var ackRoot = await PostAsync("Provision", ack);
 
