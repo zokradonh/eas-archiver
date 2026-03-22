@@ -98,7 +98,7 @@ public class EasArchiver
         var folders = await FolderSyncAsync(state);
         Log.Information("     {Count} folders found.\n", folders.Count);
 
-        Log.Information("3/3  Synchronizing emails …");
+        Log.Information("3/3  Archiving emails …");
         int totalNew = 0;
 
         foreach (var (id, name) in folders)
