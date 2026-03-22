@@ -26,4 +26,6 @@ public class SyncState
 {
     public string?                    FolderSyncKey { get; set; }
     public Dictionary<string, string> FolderKeys    { get; set; } = [];
+    /// <summary>Known folder id → display name, persisted across runs.</summary>
+    public Dictionary<string, string> KnownFolders  { get; set; } = [];
 }

@@ -155,7 +155,8 @@ public class EasArchiver
     private async Task<Dictionary<string, string>> FolderSyncAsync(SyncState state)
     {
         var syncKey = state.FolderSyncKey ?? "0";
-        var folders = new Dictionary<string, string>(); // id → display name
+        // Start from persisted folder list (subsequent syncs only return changes)
+        var folders = new Dictionary<string, string>(state.KnownFolders);
         bool retried = false;
 
         while (true)
@@ -173,6 +174,7 @@ public class EasArchiver
             {
                 syncKey = "0";
                 state.FolderSyncKey = null;
+                folders.Clear();
                 retried = true;
                 continue;
             }
@@ -198,12 +200,34 @@ public class EasArchiver
                     folders[id] = name;
             }
 
+            // Handle folder deletions
+            foreach (var del in root.Descendants(NsFolderHier + "Delete"))
+            {
+                var id = del.Element(NsFolderHier + "ServerId")?.Value;
+                if (id is not null) folders.Remove(id);
+            }
+
+            // Handle folder updates (rename etc.)
+            foreach (var upd in root.Descendants(NsFolderHier + "Update"))
+            {
+                var id   = upd.Element(NsFolderHier + "ServerId")?.Value;
+                var name = upd.Element(NsFolderHier + "DisplayName")?.Value;
+                var type = upd.Element(NsFolderHier + "Type")?.Value;
+                if (id is not null && name is not null
+                    && type is "1" or "2" or "3" or "4" or "5" or "6" or "12")
+                    folders[id] = name;
+                else if (id is not null)
+                    folders.Remove(id); // type changed to non-email → remove
+            }
+
             // MoreAvailable → another page of folders; also loop once after SyncKey=0
             if (root.Descendants(NsFolderHier + "MoreAvailable").FirstOrDefault() is null
                 && syncKey != "0")
                 break;
         }
 
+        // Persist known folders for next run
+        state.KnownFolders = new Dictionary<string, string>(folders);
         return folders;
     }
 
