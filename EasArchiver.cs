@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -61,6 +62,7 @@ public class EasArchiver
     private static readonly XNamespace NsFolderHier  = "FolderHierarchy:";
     private static readonly XNamespace NsEmail       = "Email:";
     private static readonly XNamespace NsAirSyncBase = "AirSyncBase:";
+    private static readonly XNamespace NsSettings    = "Settings:";
 
     // ── Fields ────────────────────────────────────────────────────────────────
     private readonly EasConfig  _cfg;
@@ -90,6 +92,13 @@ public class EasArchiver
 
     public async Task RunAsync(SyncState state)
     {
+        // First sync: register device information with the server
+        if (state.FolderSyncKey is null or "0")
+        {
+            Log.Information("     Sending device information …");
+            await SendDeviceInfoAsync();
+        }
+
         Log.Information("1/2  Fetching folder structure …");
         var folders = await FolderSyncAsync(state);
         Log.Information("     {Count} folders found.\n", folders.Count);
@@ -106,6 +115,27 @@ public class EasArchiver
         }
 
         Log.Information("\n     Total: {TotalNew} new email(s) archived.", totalNew);
+    }
+
+    // ── Device info (Settings command) ────────────────────────────────────────
+
+    private async Task SendDeviceInfoAsync()
+    {
+        var osName = RuntimeInformation.OSDescription.Trim();
+        var osLang = CultureInfo.CurrentCulture.Name; // e.g. "de-DE"
+
+        var deviceInfo = Xml(NsSettings + "Settings",
+            Xml(NsSettings + "DeviceInformation",
+                Xml(NsSettings + "Set",
+                    Xml(NsSettings + "OS", osName),
+                    Xml(NsSettings + "OSLanguage", osLang),
+                    Xml(NsSettings + "UserAgent",
+                        $"EasArchiver/1.0 ({osName}; DeviceType={DeviceType})"))));
+
+        var root = await PostAsync("Settings", deviceInfo);
+        var status = root?.Descendants(NsSettings + "Status").FirstOrDefault()?.Value;
+        if (status is not null && status != "1")
+            Log.Warning("  Settings/DeviceInformation Status={Status}", status);
     }
 
     // ── Step 2: FolderSync ───────────────────────────────────────────────────
@@ -328,8 +358,8 @@ public class EasArchiver
         if (_requestCount > 0)
             await Task.Delay(200);
 
-        // ── Confirm every 2 requests ─────────────────────────────────────────
-        if (_requestCount > 0 && _requestCount % 2 == 0)
+        // ── Confirm every 5 requests ─────────────────────────────────────────
+        if (_requestCount > 0 && _requestCount % 5 == 0)
         {
             Console.Write($"\n[{_requestCount} requests sent] Continue? [Y/n] ");
             var ans = Console.ReadLine()?.Trim().ToLower();
