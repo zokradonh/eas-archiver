@@ -698,12 +698,16 @@ public class EasArchiver
     /// <summary>Encode display-name parts of address headers, preserve &lt;email&gt; addresses.</summary>
     private static string EncodeAddressValue(string value)
     {
-        return Regex.Replace(value, @"([^<,]+?)(\s*<)", m =>
+        // Match quoted ("Name") or unquoted display names before <email>
+        return Regex.Replace(value, @"(?:""([^""]*)""|([^<,]+?))(\s*<[^>]+>)", m =>
         {
-            var displayName = m.Groups[1].Value;
-            var anglePrefix = m.Groups[2].Value;
+            var displayName = m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value;
+            var emailPart   = m.Groups[3].Value;
+
             if (HasNonAscii(displayName))
-                return Rfc2047QEncode(displayName.Trim()) + anglePrefix;
+                return Rfc2047QEncode(displayName.Trim()) + emailPart;
+
+            // No non-ASCII — return original match unchanged
             return m.Value;
         });
     }
