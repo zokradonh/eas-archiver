@@ -120,6 +120,13 @@ class Program
         // ── Load sync state ──────────────────────────────────────────────────
         var state = LoadState(StateFile);
 
+        if (args.Contains("--reset"))
+        {
+            state = new SyncState();
+            SaveState(StateFile, state);
+            Log.Information("Sync state has been reset.\n");
+        }
+
         // ── Start archiving ──────────────────────────────────────────────────
         var archiver = new EasArchiver(easCfg);
         try

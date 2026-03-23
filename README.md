@@ -96,6 +96,7 @@ Output: `bin/Release/net10.0/win-x64/publish/EasArchiver`
 ```
 EasArchiver                     # run archiver
 EasArchiver --version           # print version and exit
+EasArchiver --reset             # clear sync state and do a full re-sync
 EasArchiver -v                  # verbosity level 1 (up to -vvv)
 EasArchiver --debug-blobs       # save sync responses as hex files
 EasArchiver --test              # run built-in WBXML codec tests
