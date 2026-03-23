@@ -37,7 +37,10 @@ public class EasArchiver
 
     // EAS protocol version
     private const string EasVersion = "14.1";
-    private const string DeviceType = "WindowsPC";
+    private static readonly string DeviceType =
+        RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "WindowsPC" :
+        RuntimeInformation.IsOSPlatform(OSPlatform.OSX)     ? "MacOS" :
+                                                              "Linux";
     private const int    MaxHexLogBytes = 2000;
 
     // Platform-aware app data directory
