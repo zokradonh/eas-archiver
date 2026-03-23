@@ -471,7 +471,7 @@ public class EasArchiver
         if (responseBytes.Length == 0) return null;
 
         // Save Sync response blobs as hex files for debugging
-        if (cmd == "Sync" && responseBytes.Length > MaxHexLogBytes)
+        if (_cfg.DebugBlobs && cmd == "Sync")
         {
             var blobDir = Path.Combine(AppDataDir, "debug", "syncblobs");
             Directory.CreateDirectory(blobDir);

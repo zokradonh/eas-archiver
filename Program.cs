@@ -192,6 +192,7 @@ class Program
                 "-vv"  or "--verbose=2" => "--Eas:Verbosity=2",
                 "-v"   or "--verbose"
                        or "--verbose=1" => "--Eas:Verbosity=1",
+                "--debug-blobs"         => "--Eas:DebugBlobs=true",
                 _                       => arg,
             });
         }
