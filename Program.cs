@@ -20,6 +20,12 @@ class Program
     {
         Console.OutputEncoding = Encoding.UTF8;
 
+        if (args.Contains("--version"))
+        {
+            Console.WriteLine($"EasArchiver {EasArchiver.AppVersion}");
+            return 0;
+        }
+
         Directory.CreateDirectory(EasArchiver.AppDataDir);
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()

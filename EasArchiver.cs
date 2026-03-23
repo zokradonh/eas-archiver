@@ -6,6 +6,7 @@ using System.Net.Http.Headers;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -28,6 +29,12 @@ public class EasAuthException()
 
 public class EasArchiver
 {
+    // App version (from csproj <Version>)
+    public static readonly string AppVersion =
+        Assembly.GetExecutingAssembly()
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion ?? "0.0.0";
+
     // EAS protocol version
     private const string EasVersion = "14.1";
     private const string DeviceType = "WindowsPC";
@@ -82,7 +89,7 @@ public class EasArchiver
         _http.DefaultRequestHeaders.Add("MS-ASProtocolVersion", EasVersion);
         _http.DefaultRequestHeaders.TryAddWithoutValidation(
             "User-Agent",
-            $"EasArchiver/1.0 ({OsVersion}; DeviceType={DeviceType})");
+            $"EasArchiver/{AppVersion} ({OsVersion}; DeviceType={DeviceType})");
 
         var creds = BuildBasicAuth(cfg);
         _http.DefaultRequestHeaders.Authorization =
@@ -122,7 +129,7 @@ public class EasArchiver
                     Xml(NsSettings + "OS", osName),
                     Xml(NsSettings + "OSLanguage", osLang),
                     Xml(NsSettings + "UserAgent",
-                        $"EasArchiver/1.0 ({osName}; DeviceType={DeviceType})"))));
+                        $"EasArchiver/{AppVersion} ({osName}; DeviceType={DeviceType})"))));
 
         var root = await PostAsync("Settings", deviceInfo);
         var status = root?.Descendants(NsSettings + "Status").FirstOrDefault()?.Value;
