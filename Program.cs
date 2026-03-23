@@ -83,6 +83,18 @@ class Program
         // Prompt for missing required fields interactively
         easCfg = PromptMissingFields(easCfg);
 
+        // ── Validate archive drive ───────────────────────────────────────────
+        if (Path.IsPathRooted(easCfg.ArchiveDirectory))
+        {
+            var root = Path.GetPathRoot(easCfg.ArchiveDirectory)!;
+            if (!Directory.Exists(root))
+            {
+                Log.Error("Archive drive not available: {Root}", root);
+                Log.Error("   ArchiveDirectory is set to: {Dir}", easCfg.ArchiveDirectory);
+                return 1;
+            }
+        }
+
         // ── Confirm before sending any request ───────────────────────────────
         Log.Information("Server:   {ServerUrl}", easCfg.ServerUrl);
         Log.Information("User:     {Username}", easCfg.Username);
