@@ -111,8 +111,13 @@ public class EasArchiver
         }
 
         Log.Information("1/2  Fetching folder structure …");
-        var folders = await FolderSyncAsync(state);
-        Log.Information("     {Count} folders found.\n", folders.Count);
+        var allFolders = await FolderSyncAsync(state);
+        var folders    = ApplyFolderFilter(allFolders, state.FolderTree);
+        if (folders.Count < allFolders.Count)
+            Log.Information("     {Total} folders found, {Active} after filter.\n",
+                allFolders.Count, folders.Count);
+        else
+            Log.Information("     {Count} folders found.\n", folders.Count);
 
         Log.Information("2/2  Archiving emails …");
         int totalNew = await SyncAllFoldersAsync(folders, state);
@@ -238,8 +243,8 @@ public class EasArchiver
         return folders;
     }
 
-    /// <summary>Resolve the full hierarchical path for a folder by walking up ParentId.</summary>
-    private string ResolveFolderPath(string folderId, Dictionary<string, FolderInfo> tree)
+    /// <summary>Resolve the logical folder path (e.g. "Inbox/Projekte/2024") by walking up ParentId.</summary>
+    private static string ResolveFolderLogicalPath(string folderId, Dictionary<string, FolderInfo> tree)
     {
         var segments = new List<string>();
         var current  = folderId;
@@ -247,13 +252,55 @@ public class EasArchiver
 
         while (current is not null and not "0" && tree.TryGetValue(current, out var info))
         {
-            if (!visited.Add(current)) break; // guard against cycles
-            segments.Add(Sanitize(info.Name));
+            if (!visited.Add(current)) break;
+            segments.Add(info.Name);
             current = info.ParentId;
         }
 
         segments.Reverse();
-        return Path.Combine([_cfg.ArchiveDirectory, .. segments]);
+        return string.Join("/", segments);
+    }
+
+    /// <summary>Resolve the full disk path for a folder.</summary>
+    private string ResolveFolderPath(string folderId, Dictionary<string, FolderInfo> tree)
+    {
+        var logical = ResolveFolderLogicalPath(folderId, tree);
+        var parts   = logical.Split('/').Select(Sanitize).ToArray();
+        return Path.Combine([_cfg.ArchiveDirectory, .. parts]);
+    }
+
+    /// <summary>Filter folders by Include/Exclude lists. Patterns match by prefix (including subfolders).</summary>
+    private Dictionary<string, FolderInfo> ApplyFolderFilter(
+        Dictionary<string, FolderInfo> folders, Dictionary<string, FolderInfo> tree)
+    {
+        if (_cfg.Include.Count == 0 && _cfg.Exclude.Count == 0)
+            return folders;
+
+        var result = new Dictionary<string, FolderInfo>();
+        foreach (var (id, info) in folders)
+        {
+            var path = ResolveFolderLogicalPath(id, tree);
+
+            // Include: if set, folder path must match at least one pattern
+            if (_cfg.Include.Count > 0 &&
+                !_cfg.Include.Any(p => MatchesPath(path, p)))
+                continue;
+
+            // Exclude: skip if folder path matches any pattern
+            if (_cfg.Exclude.Count > 0 &&
+                _cfg.Exclude.Any(p => MatchesPath(path, p)))
+                continue;
+
+            result[id] = info;
+        }
+        return result;
+    }
+
+    /// <summary>Check if folderPath equals or is a subfolder of the pattern.</summary>
+    private static bool MatchesPath(string folderPath, string pattern)
+    {
+        return folderPath.Equals(pattern, StringComparison.OrdinalIgnoreCase)
+            || folderPath.StartsWith(pattern + "/", StringComparison.OrdinalIgnoreCase);
     }
 
     // ── Step 3: Sync all folders (batched) ───────────────────────────────────

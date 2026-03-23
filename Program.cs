@@ -80,6 +80,15 @@ class Program
 
         var easCfg = config.GetSection("Eas").Get<EasConfig>() ?? new EasConfig();
 
+        // ── Parse --include / --exclude from CLI (supports multiple) ─────────
+        foreach (var arg in args)
+        {
+            if (arg.StartsWith("--include=", StringComparison.OrdinalIgnoreCase))
+                easCfg.Include.Add(arg["--include=".Length..]);
+            else if (arg.StartsWith("--exclude=", StringComparison.OrdinalIgnoreCase))
+                easCfg.Exclude.Add(arg["--exclude=".Length..]);
+        }
+
         // Prompt for missing required fields interactively
         easCfg = PromptMissingFields(easCfg);
 
