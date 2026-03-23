@@ -10,7 +10,15 @@ Incremental – only fetches new emails on each run.
 
 ## Configuration
 
-All settings in `appsettings.json`:
+Settings are loaded in this order (later overrides earlier):
+
+1. `appsettings.json` – defaults (in the app directory)
+2. `appsettings.local.json` – local overrides (in the app directory, git-ignored)
+3. `config.json` – user settings (`%LOCALAPPDATA%\EasArchiver\` on Windows, `~/.eas-archiver/` on Linux/macOS)
+4. Environment variables
+5. Command line arguments
+
+Example `appsettings.json`:
 
 ```json
 {
@@ -28,6 +36,7 @@ All settings in `appsettings.json`:
 }
 ```
 
+- **ArchiveDirectory** – relative (to the working directory) or absolute path. An absolute path like `D:\MailArchive` is useful for storing emails on a separate drive.
 - **Domain** – leave empty if the server expects just `username` (without `domain\`)
 - **WindowSize** – number of emails per sync request (50 is a good default)
 - **FixHeaders** – EAS sometimes delivers raw UTF-8 in MIME headers (Subject, From, To, etc.) instead of RFC 2047 encoded values. When enabled (default), these are automatically fixed with `=?UTF-8?Q?...?=` encoding before saving. Set to `false` to save headers as-is.

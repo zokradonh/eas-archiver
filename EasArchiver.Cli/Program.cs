@@ -67,13 +67,16 @@ class Program
 
         // ── Load configuration ───────────────────────────────────────────────
         // Order (later overrides earlier):
-        //   1. appsettings.json
-        //   2. Environment variables  (EAS__Username etc.)
-        //   3. Command line arguments  (--Eas:Username=...)
+        //   1. appsettings.json          (app directory – defaults)
+        //   2. appsettings.local.json    (app directory – local overrides)
+        //   3. config.json               (AppDataDir – user settings)
+        //   4. Environment variables     (EAS__Username etc.)
+        //   5. Command line arguments    (--Eas:Username=...)
         var config = new ConfigurationBuilder()
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
             .AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: false)
+            .AddJsonFile(Path.Combine(EasArchiver.AppDataDir, "config.json"), optional: true, reloadOnChange: false)
             .AddEnvironmentVariables()
             .AddCommandLine(args)
             .Build();
