@@ -1,103 +1,137 @@
 # EAS Email Archiver
 
-Lädt E-Mails von einem Exchange ActiveSync (EAS) Server lokal als `.eml`-Dateien herunter.
-Inkrementell – holt bei jedem Lauf nur neue E-Mails.
+Downloads emails from an Exchange ActiveSync (EAS) server as local `.eml` files.
+Incremental – only fetches new emails on each run.
 
-## Voraussetzungen
+## Prerequisites
 
-- Windows 10 / 11
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) (nur zum Kompilieren)
+- Windows 10 / 11 (should also run on Linux / macOS)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) (build only)
 
-## Konfiguration
+## Configuration
 
-Alle Einstellungen in `appsettings.json`:
+All settings in `appsettings.json`:
 
 ```json
 {
   "Eas": {
     "ServerUrl":        "https://eas.example.com/Microsoft-Server-ActiveSync",
     "Domain":           "",
-    "Username":         "vorname.nachname",
-    "Password":         "meinPasswort",
-    "ArchiveDirectory": "email_archiv",
-    "WindowSize":       50
+    "Username":         "john.doe",
+    "Password":         "secret",
+    "ArchiveDirectory": "mail_archive",
+    "WindowSize":       50,
+    "Include":          [],
+    "Exclude":          []
   }
 }
 ```
 
-- **Domain** kann leer bleiben, wenn der Server nur `username` (ohne `domain\`) erwartet
-- **WindowSize**: Anzahl E-Mails pro Sync-Request (50 ist ein guter Wert)
-- Felder können auch leer bleiben → werden beim Start interaktiv abgefragt
+- **Domain** – leave empty if the server expects just `username` (without `domain\`)
+- **WindowSize** – number of emails per sync request (50 is a good default)
+- **Include** – only sync folders matching these names (empty = all). Also matches subfolders.
+- **Exclude** – skip folders matching these names. Applied after Include. Also matches subfolders.
+- Missing fields are prompted interactively at startup
 
-Alternativ per Umgebungsvariable (überschreibt appsettings.json):
+Override via environment variables:
 ```
 EAS__ServerUrl=https://...
-EAS__Username=vorname.nachname
-EAS__Password=geheim
+EAS__Username=john.doe
+EAS__Password=secret
 ```
 
-Oder per Kommandozeile:
+Or via command line:
 ```
-EasArchiver.exe --Eas:Username=vorname.nachname --Eas:Password=geheim
+EasArchiver --Eas:Username=john.doe --Eas:Password=secret
 ```
 
-## Kompilieren
+### Folder filtering
 
-```cmd
+Include only specific folders (whitelist):
+```json
+{
+  "Eas": {
+    "Include": ["Inbox", "Sent Items"]
+  }
+}
+```
+
+Exclude specific folders (blacklist):
+```json
+{
+  "Eas": {
+    "Exclude": ["Inbox/Spam", "Deleted Items"]
+  }
+}
+```
+
+Via CLI:
+```
+EasArchiver --include=Inbox --include="Sent Items" --exclude=Inbox/Spam
+```
+
+Rules:
+- `Include` empty → all email folders are synced
+- `Include` set → only matching folders and their subfolders
+- `Exclude` → matching folders and their subfolders are skipped
+- Exclude is applied after Include
+- Matching is case-insensitive
+- Subfolders are specified with `/`, e.g. `Inbox/Projects/2024`
+
+## Building
+
+```
 dotnet build
 ```
 
-Als **einzelne .exe** (empfohlen – keine .NET-Installation auf Zielmaschine nötig):
-```cmd
+As a **single-file executable** (recommended – no .NET installation required on target machine):
+```
 dotnet publish -c Release
 ```
 
-Ausgabe: `bin\Release\net10.0\win-x64\publish\EasArchiver.exe`
+Output: `bin/Release/net10.0/win-x64/publish/EasArchiver`
 
-## Starten
-
-```cmd
-EasArchiver.exe
-```
-
-## Quarantäne (HTTP 449)
-
-Beim ersten Start auf einem neuen Server muss das Gerät freigeschaltet werden.
-Das Programm zeigt dann:
+## Usage
 
 ```
-⚠  Gerät noch nicht freigegeben (HTTP 449 – Quarantäne).
-   Geräte-ID zur Freischaltung: a1b2c3d4e5f6...
-   Nach der Freischaltung durch den Admin bitte erneut starten.
+EasArchiver                     # run archiver
+EasArchiver --version           # print version and exit
+EasArchiver -v                  # verbosity level 1 (up to -vvv)
+EasArchiver --debug-blobs       # save sync responses as hex files
+EasArchiver --test              # run built-in WBXML codec tests
+EasArchiver --decode file.hex   # decode a WBXML hex dump to XML (writes file.xml)
 ```
 
-Die angezeigte Geräte-ID dem Admin mitteilen – er findet das Gerät in der
-Exchange-Verwaltungskonsole unter **Mobile Geräte** und kann es dort freischalten.
+## Device ID
 
-Die Geräte-ID ist stabil und basiert auf dem Computernamen.
+A random device ID is generated on first run and persisted in the app data directory
+(`%LOCALAPPDATA%\EasArchiver\device-id` on Windows, `~/.eas-archiver/device-id` on Linux/macOS).
+This ID identifies the device to the Exchange server. Delete the file to generate a new one.
 
-## Automatisch per Task Scheduler
+## Scheduled runs (Task Scheduler)
 
-1. `Win+S` → "Aufgabenplanung"
-2. "Einfache Aufgabe erstellen"
-3. Trigger: Täglich, z.B. 08:00 Uhr
-4. Aktion → Programm starten:
-   - Programm/Skript: `C:\Tools\EasArchiver\EasArchiver.exe`
-   - Starten in:      `C:\Tools\EasArchiver\`
+1. `Win+S` → "Task Scheduler"
+2. "Create Basic Task"
+3. Trigger: Daily, e.g. 08:00
+4. Action → Start a program:
+   - Program/script: `C:\Tools\EasArchiver\EasArchiver.exe`
+   - Start in:       `C:\Tools\EasArchiver\`
 
-## Dateistruktur
+## File structure
 
 ```
-EasArchiver.exe
-appsettings.json        ← Konfiguration (Passwort hier oder per Env-Var)
-eas_sync_state.json     ← Sync-Status (automatisch erstellt)
-email_archiv\
-  Posteingang\
-    2024-03-15_Betreff_a1b2c3d4.eml
-  Gesendete Elemente\
+EasArchiver
+appsettings.json                ← configuration (password here or via env var)
+eas_sync_state.json             ← sync state (created automatically)
+mail_archive/
+  Inbox/
+    2024-03-15_143045_Subject_a1b2c3d4.eml
+    Projects/                   ← subfolders follow server hierarchy
+      2024-06-01_091500_Update_b2c3d4e5.eml
+  Sent Items/
     ...
 ```
 
 ## Format
 
-`.eml` (RFC 2822) öffnet sich per Doppelklick in Outlook.
+`.eml` (RFC 2822) – opens with a double-click in Outlook or Thunderbird.
