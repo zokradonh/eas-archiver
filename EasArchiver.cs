@@ -31,6 +31,7 @@ public class EasArchiver
     // EAS protocol version
     private const string EasVersion = "14.1";
     private const string DeviceType = "WindowsPC";
+    private const int    MaxHexLogBytes = 2000;
 
     // Platform-aware app data directory
     public static readonly string AppDataDir = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
@@ -463,7 +464,7 @@ public class EasArchiver
         if (responseBytes.Length == 0) return null;
 
         // Save Sync response blobs as hex files for debugging
-        if (cmd == "Sync" && responseBytes.Length > 5000)
+        if (cmd == "Sync" && responseBytes.Length > MaxHexLogBytes)
         {
             var blobDir = Path.Combine(AppDataDir, "debug", "syncblobs");
             Directory.CreateDirectory(blobDir);
@@ -473,7 +474,8 @@ public class EasArchiver
             Log.Debug("  Sync blob saved: {Path}", blobPath);
         }
 
-        if (_v >= 3) Log.Debug("\n  resp-hex: {Hex}\n", Convert.ToHexString(responseBytes));
+        if (_v >= 3 && responseBytes.Length <= MaxHexLogBytes)
+            Log.Debug("\n  resp-hex: {Hex}\n", Convert.ToHexString(responseBytes));
 
         var decoded = EasWbxml.Decode(responseBytes);
         if (_v >= 3) Log.Debug("{Decoded}\n", decoded);
