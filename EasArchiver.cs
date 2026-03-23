@@ -126,6 +126,7 @@ public class EasArchiver
         var deviceInfo = Xml(NsSettings + "Settings",
             Xml(NsSettings + "DeviceInformation",
                 Xml(NsSettings + "Set",
+                    Xml(NsSettings + "FriendlyName", Environment.MachineName),
                     Xml(NsSettings + "OS", osName),
                     Xml(NsSettings + "OSLanguage", osLang),
                     Xml(NsSettings + "UserAgent",
