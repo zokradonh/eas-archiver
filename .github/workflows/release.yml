@@ -34,7 +34,7 @@ jobs:
           dotnet-quality: 'preview'
 
       - name: Publish
-        run: dotnet publish -c Release -r ${{ matrix.rid }} -o publish
+        run: dotnet publish EasArchiver.Cli -c Release -r ${{ matrix.rid }} -o publish
 
       - name: Zip artifact
         shell: bash

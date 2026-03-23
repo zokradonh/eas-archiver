@@ -1,4 +1,4 @@
-appsettings.local.json
+**/appsettings.local.json
 
 # Build output
 bin/

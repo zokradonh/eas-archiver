@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>EasArchiver</RootNamespace>
+    <LangVersion>14</LangVersion>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog" Version="4.*" />
+  </ItemGroup>
+
+</Project>

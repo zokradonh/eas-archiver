@@ -4,7 +4,7 @@ using System.Xml.Linq;
 
 namespace EasArchiver;
 
-internal static class WbxmlTests
+public static class WbxmlTests
 {
     private static readonly XNamespace NsFolderHier = "FolderHierarchy:";
     private static readonly XNamespace NsProvision  = "Provision:";

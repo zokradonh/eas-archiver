@@ -8,7 +8,7 @@ namespace EasArchiver;
 /// Covers the codepages used by EasArchiver: AirSync, Email,
 /// FolderHierarchy, Provision, AirSyncBase.
 /// </summary>
-internal static class EasWbxml
+public static class EasWbxml
 {
     // ── WBXML token constants ────────────────────────────────────────────────
     private const byte TokSwitchPage = 0x00;
