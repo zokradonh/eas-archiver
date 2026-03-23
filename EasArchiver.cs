@@ -104,16 +104,7 @@ public class EasArchiver
         Log.Information("     {Count} folders found.\n", folders.Count);
 
         Log.Information("2/2  Archiving emails …");
-        int totalNew = 0;
-
-        foreach (var (id, name) in folders)
-        {
-            int count = await SyncFolderAsync(id, name, state);
-            Log.Information("     {FolderName,-45}{Result}", name,
-                count > 0 ? $"{count,4} new mail(s)" : "   –");
-            totalNew += count;
-        }
-
+        int totalNew = await SyncAllFoldersAsync(folders, state);
         Log.Information("\n     Total: {TotalNew} new email(s) archived.", totalNew);
     }
 
@@ -219,88 +210,147 @@ public class EasArchiver
         return folders;
     }
 
-    // ── Step 3: Sync folders ─────────────────────────────────────────────────
+    // ── Step 3: Sync all folders (batched) ───────────────────────────────────
 
-    private async Task<int> SyncFolderAsync(string folderId, string folderName, SyncState state)
+    private async Task<int> SyncAllFoldersAsync(
+        Dictionary<string, string> folders, SyncState state)
     {
-        var folderPath = Path.Combine(_cfg.ArchiveDirectory, Sanitize(folderName));
-        Directory.CreateDirectory(folderPath);
-
-        var syncKey = state.FolderKeys.GetValueOrDefault(folderId, "0");
-        int totalNew = 0;
-        bool retried = false;
-
-        while (true)
+        // Prepare folder paths
+        var folderPaths = new Dictionary<string, string>();
+        foreach (var (id, name) in folders)
         {
-            var request = BuildSyncRequest(folderId, syncKey);
+            var path = Path.Combine(_cfg.ArchiveDirectory, Sanitize(name));
+            Directory.CreateDirectory(path);
+            folderPaths[id] = path;
+        }
+
+        // Track per-folder counts and retry state
+        var counts  = new Dictionary<string, int>();
+        var retried = new HashSet<string>();
+        // Active set: folders that still need syncing
+        var active  = new HashSet<string>(folders.Keys);
+        int totalNew = 0;
+
+        while (active.Count > 0)
+        {
+            // Remember which folders had SyncKey=0 before the request
+            var wasZero = new HashSet<string>(
+                active.Where(id => state.FolderKeys.GetValueOrDefault(id, "0") == "0"));
+
+            var request = BuildBatchSyncRequest(active, state);
             var root    = await PostAsync("Sync", request);
             if (root is null) break;
 
-            var status = root.Descendants(NsAirSync + "Status").FirstOrDefault()?.Value;
-
-            // Status 4 = protocol error, 3/165 = invalid SyncKey → reset and retry once
-            if (status is "3" or "4" or "165" && !retried)
+            // Check top-level status (applies to entire request)
+            var topStatus = root.Element(NsAirSync + "Status")?.Value;
+            if (topStatus is not null && topStatus != "1")
             {
-                syncKey = "0";
-                state.FolderKeys.Remove(folderId);
-                retried = true;
-                continue;
-            }
-            if (status is not null && status != "1") break;
-
-            var newKey = root.Descendants(NsAirSync + "SyncKey").FirstOrDefault()?.Value;
-            if (newKey is not null)
-            {
-                syncKey = newKey;
-                state.FolderKeys[folderId] = newKey;
-            }
-
-            var commands = root.Descendants(NsAirSync + "Commands").FirstOrDefault();
-            if (commands is null)
-            {
-                // SyncKey=0 response only provides a key, no data — continue to fetch
-                if (syncKey != "0") continue;
+                Log.Warning("  Sync batch Status={Status}", topStatus);
                 break;
             }
 
-            foreach (var add in commands.Elements(NsAirSync + "Add"))
-                if (await SaveEmailAsync(add, folderPath))
-                    totalNew++;
+            // Server only returns collections that have something to report.
+            // Folders not in the response have no changes → done.
+            var responded = new HashSet<string>();
+            var needMore  = new HashSet<string>();
 
-            // MoreAvailable → another sync cycle needed
-            if (root.Descendants(NsAirSync + "MoreAvailable").FirstOrDefault() is null)
-                break;
+            foreach (var coll in root.Descendants(NsAirSync + "Collection"))
+            {
+                var collId = coll.Element(NsAirSync + "CollectionId")?.Value;
+                if (collId is null || !active.Contains(collId)) continue;
+                responded.Add(collId);
+
+                var status = coll.Element(NsAirSync + "Status")?.Value;
+
+                // Invalid SyncKey → reset and retry once
+                if (status is "3" or "4" or "165" && !retried.Contains(collId))
+                {
+                    state.FolderKeys.Remove(collId);
+                    retried.Add(collId);
+                    needMore.Add(collId);
+                    continue;
+                }
+                if (status is not null && status != "1") continue;
+
+                var newKey = coll.Element(NsAirSync + "SyncKey")?.Value;
+                if (newKey is not null)
+                    state.FolderKeys[collId] = newKey;
+
+                var commands = coll.Element(NsAirSync + "Commands");
+                if (commands is not null)
+                {
+                    foreach (var add in commands.Elements(NsAirSync + "Add"))
+                    {
+                        if (await SaveEmailAsync(add, folderPaths[collId]))
+                        {
+                            counts[collId] = counts.GetValueOrDefault(collId) + 1;
+                            totalNew++;
+                        }
+                    }
+                }
+
+                // Was SyncKey=0 → just got initialized, need to re-request with real key
+                if (wasZero.Contains(collId) && newKey is not null)
+                    needMore.Add(collId);
+                // MoreAvailable → server has more items for this folder
+                else if (coll.Element(NsAirSync + "MoreAvailable") is not null)
+                    needMore.Add(collId);
+            }
+
+            // Folders that were SyncKey=0 but not in the response → still need init
+            foreach (var id in wasZero)
+                if (!responded.Contains(id))
+                    needMore.Add(id);
+
+            active = needMore;
+        }
+
+        // Log results per folder
+        foreach (var (id, name) in folders)
+        {
+            var count = counts.GetValueOrDefault(id);
+            Log.Information("     {FolderName,-45}{Result}", name,
+                count > 0 ? $"{count,4} new mail(s)" : "   –");
         }
 
         return totalNew;
     }
 
-    private XElement BuildSyncRequest(string collectionId, string syncKey)
+    private XElement BuildBatchSyncRequest(
+        HashSet<string> folderIds, SyncState state)
     {
-        // SyncKey=0 is the initialisation request – only SyncKey + CollectionId allowed.
-        // GetChanges, Options etc. must NOT be sent until the server has issued a real key.
-        var collection = new XElement(NsAirSync + "Collection",
-            Xml(NsAirSync + "SyncKey",      syncKey),
-            Xml(NsAirSync + "CollectionId", collectionId));
+        var collections = new XElement(NsAirSync + "Collections");
 
-        if (syncKey != "0")
+        foreach (var folderId in folderIds)
         {
-            collection.Add(
-                Xml(NsAirSync + "DeletesAsMoves", "0"),
-                Xml(NsAirSync + "GetChanges",     "1"),
-                Xml(NsAirSync + "WindowSize",     _cfg.WindowSize.ToString()),
-                new XElement(NsAirSync + "Options",
-                    Xml(NsAirSync + "MIMESupport",    "2"),
-                    Xml(NsAirSync + "MIMETruncation", "8"),
-                    new XElement(NsAirSyncBase + "BodyPreference",
-                        Xml(NsAirSyncBase + "Type",     "4"),
-                        Xml(NsAirSyncBase + "AllOrNone", "1"))));
+            var syncKey = state.FolderKeys.GetValueOrDefault(folderId, "0");
+
+            var collection = new XElement(NsAirSync + "Collection",
+                Xml(NsAirSync + "SyncKey",      syncKey),
+                Xml(NsAirSync + "CollectionId", folderId));
+
+            // SyncKey=0 is init — only SyncKey + CollectionId allowed
+            if (syncKey != "0")
+            {
+                collection.Add(
+                    Xml(NsAirSync + "DeletesAsMoves", "0"),
+                    Xml(NsAirSync + "GetChanges",     "1"),
+                    Xml(NsAirSync + "WindowSize",     _cfg.WindowSize.ToString()),
+                    new XElement(NsAirSync + "Options",
+                        Xml(NsAirSync + "MIMESupport",    "2"),
+                        Xml(NsAirSync + "MIMETruncation", "8"),
+                        new XElement(NsAirSyncBase + "BodyPreference",
+                            Xml(NsAirSyncBase + "Type",     "4"),
+                            Xml(NsAirSyncBase + "AllOrNone", "1"))));
+            }
+
+            collections.Add(collection);
         }
 
         return new XElement(NsAirSync + "Sync",
             new XAttribute(XNamespace.Xmlns + "Email",       NsEmail.NamespaceName),
             new XAttribute(XNamespace.Xmlns + "AirSyncBase", NsAirSyncBase.NamespaceName),
-            new XElement(NsAirSync + "Collections", collection));
+            collections);
     }
     // ── Save email as .eml ───────────────────────────────────────────────────
 
