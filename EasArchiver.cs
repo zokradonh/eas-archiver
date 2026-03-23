@@ -139,11 +139,12 @@ public class EasArchiver
 
     // ── Step 2: FolderSync ───────────────────────────────────────────────────
 
-    private async Task<Dictionary<string, string>> FolderSyncAsync(SyncState state)
+    private async Task<Dictionary<string, FolderInfo>> FolderSyncAsync(SyncState state)
     {
         var syncKey = state.FolderSyncKey ?? "0";
-        // Start from persisted folder list (subsequent syncs only return changes)
-        var folders = new Dictionary<string, string>(state.KnownFolders);
+        // Start from persisted lists (subsequent syncs only return changes)
+        var folders  = new Dictionary<string, FolderInfo>(state.KnownFolders);
+        var tree     = new Dictionary<string, FolderInfo>(state.FolderTree);
         bool retried = false;
 
         while (true)
@@ -162,6 +163,7 @@ public class EasArchiver
                 syncKey = "0";
                 state.FolderSyncKey = null;
                 folders.Clear();
+                tree.Clear();
                 retried = true;
                 continue;
             }
@@ -177,33 +179,46 @@ public class EasArchiver
 
             foreach (var add in root.Descendants(NsFolderHier + "Add"))
             {
-                var id   = add.Element(NsFolderHier + "ServerId")?.Value;
-                var name = add.Element(NsFolderHier + "DisplayName")?.Value;
-                var type = add.Element(NsFolderHier + "Type")?.Value;
-                // Only include email folder types:
+                var id       = add.Element(NsFolderHier + "ServerId")?.Value;
+                var name     = add.Element(NsFolderHier + "DisplayName")?.Value;
+                var parentId = add.Element(NsFolderHier + "ParentId")?.Value ?? "0";
+                var type     = add.Element(NsFolderHier + "Type")?.Value;
+                if (id is null || name is null) continue;
+
+                // Track every folder for hierarchy resolution
+                tree[id] = new FolderInfo { Name = name, ParentId = parentId };
+
+                // Only include email folder types for syncing:
                 // 1=User mail, 2=Inbox, 3=Drafts, 4=Deleted, 5=Sent, 6=Outbox, 12=User mail
-                if (id is not null && name is not null
-                    && type is "1" or "2" or "3" or "4" or "5" or "6" or "12")
-                    folders[id] = name;
+                if (type is "1" or "2" or "3" or "4" or "5" or "6" or "12")
+                    folders[id] = new FolderInfo { Name = name, ParentId = parentId };
             }
 
             // Handle folder deletions
             foreach (var del in root.Descendants(NsFolderHier + "Delete"))
             {
                 var id = del.Element(NsFolderHier + "ServerId")?.Value;
-                if (id is not null) folders.Remove(id);
+                if (id is not null)
+                {
+                    folders.Remove(id);
+                    tree.Remove(id);
+                }
             }
 
             // Handle folder updates (rename etc.)
             foreach (var upd in root.Descendants(NsFolderHier + "Update"))
             {
-                var id   = upd.Element(NsFolderHier + "ServerId")?.Value;
-                var name = upd.Element(NsFolderHier + "DisplayName")?.Value;
-                var type = upd.Element(NsFolderHier + "Type")?.Value;
-                if (id is not null && name is not null
-                    && type is "1" or "2" or "3" or "4" or "5" or "6" or "12")
-                    folders[id] = name;
-                else if (id is not null)
+                var id       = upd.Element(NsFolderHier + "ServerId")?.Value;
+                var name     = upd.Element(NsFolderHier + "DisplayName")?.Value;
+                var parentId = upd.Element(NsFolderHier + "ParentId")?.Value ?? "0";
+                var type     = upd.Element(NsFolderHier + "Type")?.Value;
+                if (id is null || name is null) continue;
+
+                tree[id] = new FolderInfo { Name = name, ParentId = parentId };
+
+                if (type is "1" or "2" or "3" or "4" or "5" or "6" or "12")
+                    folders[id] = new FolderInfo { Name = name, ParentId = parentId };
+                else
                     folders.Remove(id); // type changed to non-email → remove
             }
 
@@ -213,21 +228,40 @@ public class EasArchiver
                 break;
         }
 
-        // Persist known folders for next run
-        state.KnownFolders = new Dictionary<string, string>(folders);
+        // Persist for next run
+        state.KnownFolders = new Dictionary<string, FolderInfo>(folders);
+        state.FolderTree   = new Dictionary<string, FolderInfo>(tree);
         return folders;
+    }
+
+    /// <summary>Resolve the full hierarchical path for a folder by walking up ParentId.</summary>
+    private string ResolveFolderPath(string folderId, Dictionary<string, FolderInfo> tree)
+    {
+        var segments = new List<string>();
+        var current  = folderId;
+        var visited  = new HashSet<string>();
+
+        while (current is not null and not "0" && tree.TryGetValue(current, out var info))
+        {
+            if (!visited.Add(current)) break; // guard against cycles
+            segments.Add(Sanitize(info.Name));
+            current = info.ParentId;
+        }
+
+        segments.Reverse();
+        return Path.Combine([_cfg.ArchiveDirectory, .. segments]);
     }
 
     // ── Step 3: Sync all folders (batched) ───────────────────────────────────
 
     private async Task<int> SyncAllFoldersAsync(
-        Dictionary<string, string> folders, SyncState state)
+        Dictionary<string, FolderInfo> folders, SyncState state)
     {
-        // Prepare folder paths
+        // Prepare folder paths using hierarchy
         var folderPaths = new Dictionary<string, string>();
-        foreach (var (id, name) in folders)
+        foreach (var (id, _) in folders)
         {
-            var path = Path.Combine(_cfg.ArchiveDirectory, Sanitize(name));
+            var path = ResolveFolderPath(id, state.FolderTree);
             Directory.CreateDirectory(path);
             folderPaths[id] = path;
         }
@@ -314,10 +348,10 @@ public class EasArchiver
         }
 
         // Log results per folder
-        foreach (var (id, name) in folders)
+        foreach (var (id, info) in folders)
         {
             var count = counts.GetValueOrDefault(id);
-            Log.Information("     {FolderName,-45}{Result}", name,
+            Log.Information("     {FolderName,-45}{Result}", info.Name,
                 count > 0 ? $"{count,4} new mail(s)" : "   –");
         }
 

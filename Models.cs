@@ -19,14 +19,23 @@ public class EasConfig
     public bool   DebugBlobs      { get; set; } = false;
 }
 
+/// <summary>Folder metadata from FolderSync (persisted for hierarchy resolution).</summary>
+public class FolderInfo
+{
+    public string Name     { get; set; } = "";
+    public string ParentId { get; set; } = "0";
+}
+
 /// <summary>
 /// Persisted to eas_sync_state.json – stores SyncKeys
 /// so that each run only fetches new emails.
 /// </summary>
 public class SyncState
 {
-    public string?                    FolderSyncKey { get; set; }
-    public Dictionary<string, string> FolderKeys    { get; set; } = [];
-    /// <summary>Known folder id → display name, persisted across runs.</summary>
-    public Dictionary<string, string> KnownFolders  { get; set; } = [];
+    public string?                         FolderSyncKey { get; set; }
+    public Dictionary<string, string>      FolderKeys    { get; set; } = [];
+    /// <summary>Email folder id → info, persisted across runs.</summary>
+    public Dictionary<string, FolderInfo>  KnownFolders  { get; set; } = [];
+    /// <summary>All folder id → info (including non-email), for hierarchy path resolution.</summary>
+    public Dictionary<string, FolderInfo>  FolderTree    { get; set; } = [];
 }
