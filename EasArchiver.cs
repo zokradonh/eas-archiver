@@ -66,8 +66,7 @@ public class EasArchiver
         return id;
     }
 
-    // Windows version for User-Agent (e.g. "Windows 11 (10.0.26100)")
-    private static readonly string OsVersion = GetWindowsVersion();
+    private static readonly string OsVersion = GetOsVersion();
 
     // ── EAS XML namespaces ────────────────────────────────────────────────────
     private static readonly XNamespace NsAirSync     = "AirSync:";
@@ -609,17 +608,10 @@ public class EasArchiver
         return Path.Combine(folder, $"{safeDate}_{safeSubject}_{hash}.eml");
     }
 
-    private static string GetWindowsVersion()
+    private static string GetOsVersion()
     {
-        try
-        {
-            var os = RuntimeInformation.OSDescription.Trim(); // e.g. "Microsoft Windows 10.0.26100"
-            return os;
-        }
-        catch
-        {
-            return "Windows";
-        }
+        try { return RuntimeInformation.OSDescription.Trim(); }
+        catch { return Environment.OSVersion.ToString(); }
     }
 
     // ── RFC 2047 header fix ────────────────────────────────────────────────
