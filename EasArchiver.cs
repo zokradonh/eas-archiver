@@ -508,7 +508,10 @@ public class EasArchiver
 
     private static string BuildEmlPath(string folder, string serverId, string subject, string dateStr)
     {
-        var safeDate    = Sanitize(dateStr.Length >= 10 ? dateStr[..10] : dateStr);
+        var safeDate = DateTime.TryParse(dateStr, CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind, out var dt)
+            ? dt.ToString("yyyy-MM-dd_HHmmss")
+            : Sanitize(dateStr);
         var safeSubject = Sanitize(subject);
         safeSubject = safeSubject[..Math.Min(60, safeSubject.Length)];
         var hash        = Convert.ToHexString(
