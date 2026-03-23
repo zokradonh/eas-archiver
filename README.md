@@ -21,6 +21,7 @@ All settings in `appsettings.json`:
     "Password":         "secret",
     "ArchiveDirectory": "mail_archive",
     "WindowSize":       50,
+    "FixHeaders":       true,
     "Include":          [],
     "Exclude":          []
   }
@@ -29,6 +30,7 @@ All settings in `appsettings.json`:
 
 - **Domain** – leave empty if the server expects just `username` (without `domain\`)
 - **WindowSize** – number of emails per sync request (50 is a good default)
+- **FixHeaders** – EAS sometimes delivers raw UTF-8 in MIME headers (Subject, From, To, etc.) instead of RFC 2047 encoded values. When enabled (default), these are automatically fixed with `=?UTF-8?Q?...?=` encoding before saving. Set to `false` to save headers as-is.
 - **Include** – only sync folders matching these names (empty = all). Also matches subfolders.
 - **Exclude** – skip folders matching these names. Applied after Include. Also matches subfolders.
 - Missing fields are prompted interactively at startup

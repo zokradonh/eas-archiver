@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Serilog;
@@ -481,6 +482,9 @@ public class EasArchiver
 
         if (content is null) return false;
 
+        if (_cfg.FixHeaders)
+            content = FixMimeHeaders(content);
+
         var path = BuildEmlPath(folderPath, serverId, subject, dateStr);
         if (File.Exists(path)) return false;
 
@@ -616,6 +620,92 @@ public class EasArchiver
         {
             return "Windows";
         }
+    }
+
+    // ── RFC 2047 header fix ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Fix MIME headers that contain raw UTF-8 instead of RFC 2047 encoding.
+    /// Exchange EAS sometimes strips =?charset?Q?...?= and sends raw UTF-8.
+    /// </summary>
+    private static string FixMimeHeaders(string mime)
+    {
+        var split = mime.IndexOf("\r\n\r\n");
+        if (split < 0) return mime;
+
+        var headerBlock = mime[..split];
+        var rest = mime[split..]; // "\r\n\r\n" + body
+
+        // Parse headers (unfold continuation lines)
+        var rawLines = headerBlock.Split("\r\n");
+        var headers = new List<string>();
+        foreach (var line in rawLines)
+        {
+            if (line.Length > 0 && line[0] is ' ' or '\t' && headers.Count > 0)
+                headers[^1] += " " + line.TrimStart();
+            else
+                headers.Add(line);
+        }
+
+        for (int i = 0; i < headers.Count; i++)
+        {
+            var h = headers[i];
+            var colon = h.IndexOf(':');
+            if (colon < 0) continue;
+
+            var name  = h[..colon];
+            var after = h[(colon + 1)..];
+
+            // Preserve whitespace between colon and value
+            var trimmed = after.TrimStart();
+            var spacing = after[..^trimmed.Length];
+
+            if (!HasNonAscii(trimmed) || trimmed.Contains("=?"))
+                continue;
+
+            if (name.Equals("Subject", StringComparison.OrdinalIgnoreCase))
+                headers[i] = $"{name}:{spacing}{Rfc2047QEncode(trimmed)}";
+            else if (name.Equals("From", StringComparison.OrdinalIgnoreCase)
+                  || name.Equals("To", StringComparison.OrdinalIgnoreCase)
+                  || name.Equals("Cc", StringComparison.OrdinalIgnoreCase)
+                  || name.Equals("Bcc", StringComparison.OrdinalIgnoreCase))
+                headers[i] = $"{name}:{spacing}{EncodeAddressValue(trimmed)}";
+        }
+
+        return string.Join("\r\n", headers) + rest;
+    }
+
+    private static bool HasNonAscii(string s) => s.Any(c => c > 127);
+
+    /// <summary>RFC 2047 Q-encode a string as =?UTF-8?Q?...?=</summary>
+    private static string Rfc2047QEncode(string value)
+    {
+        var bytes = Encoding.UTF8.GetBytes(value);
+        var sb = new StringBuilder("=?UTF-8?Q?");
+        foreach (var b in bytes)
+        {
+            if (b == ' ')
+                sb.Append('_');
+            else if (b is >= 33 and <= 126 and not (byte)'=' and not (byte)'?' and not (byte)'_')
+                sb.Append((char)b);
+            else
+                sb.Append($"={b:X2}");
+        }
+        sb.Append("?=");
+        return sb.ToString();
+    }
+
+    /// <summary>Encode display-name parts of address headers, preserve &lt;email&gt; addresses.</summary>
+    private static string EncodeAddressValue(string value)
+    {
+        return Regex.Replace(value, @"([^<,]+?)(\s*<)", m =>
+        {
+            var displayName = m.Groups[1].Value;
+            var anglePrefix = m.Groups[2].Value;
+            if (HasNonAscii(displayName))
+                return Rfc2047QEncode(displayName.Trim()) + anglePrefix;
+            return m.Value;
+        });
     }
 
     // Compact XML builder
