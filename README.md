@@ -88,10 +88,12 @@ dotnet build
 
 As a **single-file executable** (recommended – no .NET installation required on target machine):
 ```
-dotnet publish -c Release
+dotnet publish -c Release -r win-x64      # Windows
+dotnet publish -c Release -r osx-arm64    # macOS (Apple Silicon)
+dotnet publish -c Release -r linux-x64    # Linux
 ```
 
-Output: `bin/Release/net10.0/win-x64/publish/EasArchiver`
+Output: `bin/Release/net10.0/<rid>/publish/EasArchiver`
 
 ## Usage
 

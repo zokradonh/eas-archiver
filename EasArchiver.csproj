@@ -10,10 +10,9 @@
     <LangVersion>14</LangVersion>
     <Version>1.0.0</Version>
 
-    <!-- Single-file self-contained .exe – no .NET installation required -->
+    <!-- Single-file self-contained publish (pass -r <rid> to dotnet publish) -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishReadyToRun>true</PublishReadyToRun>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
