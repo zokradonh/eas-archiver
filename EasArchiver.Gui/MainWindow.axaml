@@ -1,0 +1,104 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:EasArchiver.Gui.ViewModels"
+        x:Class="EasArchiver.Gui.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="EAS Email Archiver"
+        Width="700" Height="650" MinWidth="500" MinHeight="500">
+
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
+
+    <DockPanel Margin="16">
+
+        <!-- Status bar -->
+        <Border DockPanel.Dock="Bottom" Margin="0,8,0,0" Padding="8,4"
+                Background="{DynamicResource SystemControlBackgroundListLowBrush}"
+                CornerRadius="4">
+            <TextBlock Text="{Binding StatusText}" />
+        </Border>
+
+        <!-- Main content -->
+        <Grid RowDefinitions="Auto,*">
+
+            <!-- Config section -->
+            <Border Grid.Row="0" Padding="12" CornerRadius="6"
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                    BorderThickness="1" Margin="0,0,0,8">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Configuration" FontWeight="SemiBold" FontSize="16" />
+
+                    <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                          RowSpacing="6" ColumnSpacing="8">
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Server URL" />
+                        <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding ServerUrl}"
+                                   Watermark="https://eas.example.com/Microsoft-Server-ActiveSync" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Domain" />
+                        <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding Domain}"
+                                   Watermark="(leave empty if not required)" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Username" />
+                        <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding Username}" />
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Password" />
+                        <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding Password}"
+                                   PasswordChar="*" RevealPassword="False" />
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="Archive Directory" />
+                        <TextBox   Grid.Row="4" Grid.Column="1" Text="{Binding ArchiveDirectory}"
+                                   Watermark="mail_archive or D:\MailArchive" />
+
+                        <TextBlock Grid.Row="5" Grid.Column="0" VerticalAlignment="Center" Text="Window Size" />
+                        <NumericUpDown Grid.Row="5" Grid.Column="1" Value="{Binding WindowSize}"
+                                       Minimum="1" Maximum="500" HorizontalAlignment="Left" Width="120" />
+
+                        <TextBlock Grid.Row="6" Grid.Column="0" VerticalAlignment="Center" Text="Include Folders" />
+                        <TextBox   Grid.Row="6" Grid.Column="1" Text="{Binding IncludeFolders}"
+                                   Watermark="Inbox, Sent Items  (comma-separated, empty = all)" />
+
+                        <TextBlock Grid.Row="7" Grid.Column="0" VerticalAlignment="Center" Text="Exclude Folders" />
+                        <TextBox   Grid.Row="7" Grid.Column="1" Text="{Binding ExcludeFolders}"
+                                   Watermark="Deleted Items, Inbox/Spam  (comma-separated)" />
+
+                        <CheckBox Grid.Row="8" Grid.Column="1" IsChecked="{Binding FixHeaders}"
+                                  Content="Fix non-ASCII MIME headers (RFC 2047)" />
+                    </Grid>
+
+                    <!-- Buttons -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                        <Button Content="Save Config" Command="{Binding SaveConfigCommand}" />
+                        <Button Content="Reload Config" Command="{Binding LoadConfigCommand}" />
+                        <Border Width="1" Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                                Margin="4,2" />
+                        <Button Content="Start Sync" Command="{Binding StartSyncCommand}"
+                                Classes="accent" />
+                        <Button Content="Stop" Command="{Binding StopSyncCommand}" />
+                        <Border Width="1" Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                                Margin="4,2" />
+                        <Button Content="Reset Sync State" Command="{Binding ResetSyncStateCommand}" />
+                    </StackPanel>
+
+                    <!-- Progress -->
+                    <TextBlock Text="{Binding ProgressText}" IsVisible="{Binding IsSyncing}"
+                               FontStyle="Italic" Opacity="0.8" />
+                </StackPanel>
+            </Border>
+
+            <!-- Log output -->
+            <Border Grid.Row="1" Padding="8" CornerRadius="6"
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                    BorderThickness="1">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Log" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <ListBox ItemsSource="{Binding LogLines}"
+                             FontFamily="Cascadia Mono, Consolas, monospace" FontSize="12"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                </DockPanel>
+            </Border>
+
+        </Grid>
+    </DockPanel>
+</Window>

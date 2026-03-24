@@ -81,6 +81,14 @@ public class EasArchiver
     private readonly HttpClientHandler _handler;
     private readonly int        _v; // verbosity 0-3
     private int _requestCount = 0;
+    private IProgress<SyncProgress>? _progress;
+    private CancellationToken _ct;
+
+    /// <summary>
+    /// Optional callback invoked every 5 requests to confirm continuation.
+    /// Return true to continue, false to abort. When null, sync runs without confirmation.
+    /// </summary>
+    public Func<int, Task<bool>>? ConfirmContinue { get; set; }
 
     public EasArchiver(EasConfig cfg)
     {
@@ -101,16 +109,24 @@ public class EasArchiver
 
     // ── Main flow ─────────────────────────────────────────────────────────────
 
-    public async Task RunAsync(SyncState state)
+    public Task RunAsync(SyncState state) =>
+        RunAsync(state, null, CancellationToken.None);
+
+    public async Task RunAsync(SyncState state, IProgress<SyncProgress>? progress, CancellationToken ct = default)
     {
+        _progress = progress;
+        _ct = ct;
+
         // First sync: register device information with the server
         if (state.FolderSyncKey is null or "0")
         {
             Log.Information("     Sending device information …");
+            ReportProgress("DeviceInfo");
             await SendDeviceInfoAsync();
         }
 
         Log.Information("1/2  Fetching folder structure …");
+        ReportProgress("FolderSync");
         var allFolders = await FolderSyncAsync(state);
         var folders    = ApplyFolderFilter(allFolders, state.FolderTree);
         if (folders.Count < allFolders.Count)
@@ -120,8 +136,21 @@ public class EasArchiver
             Log.Information("     {Count} folders found.\n", folders.Count);
 
         Log.Information("2/2  Archiving emails …");
+        ReportProgress("Sync", foldersTotal: folders.Count);
         int totalNew = await SyncAllFoldersAsync(folders, state);
         Log.Information("\n     Total: {TotalNew} new email(s) archived.", totalNew);
+        ReportProgress("Done", emailsNew: totalNew, foldersTotal: folders.Count);
+    }
+
+    private void ReportProgress(string phase, string folderName = "", int foldersTotal = 0,
+        int foldersActive = 0, int emailsNew = 0)
+    {
+        _progress?.Report(new SyncProgress
+        {
+            Phase = phase, FolderName = folderName,
+            FoldersTotal = foldersTotal, FoldersActive = foldersActive,
+            EmailsNew = emailsNew, RequestCount = _requestCount
+        });
     }
 
     // ── Device info (Settings command) ────────────────────────────────────────
@@ -502,16 +531,14 @@ public class EasArchiver
 
         // ── Rate limit: 200 ms between requests ──────────────────────────────
         if (_requestCount > 0)
-            await Task.Delay(200);
+            await Task.Delay(200, _ct);
+        _ct.ThrowIfCancellationRequested();
 
         // ── Confirm every 5 requests ─────────────────────────────────────────
-        if (_requestCount > 0 && _requestCount % 5 == 0)
+        if (_requestCount > 0 && _requestCount % 5 == 0 && ConfirmContinue is not null)
         {
-            Console.Write($"\n[{_requestCount} requests sent] Continue? [Y/n] ");
-            var ans = Console.ReadLine()?.Trim().ToLower();
-            if (ans == "n" || ans == "no")
+            if (!await ConfirmContinue(_requestCount))
                 throw new OperationCanceledException("Aborted by user after rate-limit prompt.");
-            Console.WriteLine();
         }
 
         _requestCount++;

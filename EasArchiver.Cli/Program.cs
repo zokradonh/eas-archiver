@@ -132,6 +132,13 @@ class Program
 
         // ── Start archiving ──────────────────────────────────────────────────
         var archiver = new EasArchiver(easCfg);
+        archiver.ConfirmContinue = count =>
+        {
+            Console.Write($"\n[{count} requests sent] Continue? [Y/n] ");
+            var ans = Console.ReadLine()?.Trim().ToLower();
+            Console.WriteLine();
+            return Task.FromResult(ans is not "n" and not "no");
+        };
         try
         {
             await archiver.RunAsync(state);

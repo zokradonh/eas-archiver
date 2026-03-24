@@ -2,6 +2,17 @@ using System.Collections.Generic;
 
 namespace EasArchiver;
 
+/// <summary>Progress information reported during sync.</summary>
+public class SyncProgress
+{
+    public string Phase       { get; init; } = "";
+    public string FolderName  { get; init; } = "";
+    public int    FoldersTotal    { get; init; }
+    public int    FoldersActive   { get; init; }
+    public int    EmailsNew       { get; init; }
+    public int    RequestCount    { get; init; }
+}
+
 /// <summary>
 /// Loaded from appsettings.json (section "Eas").
 /// Missing values are prompted interactively at startup.
