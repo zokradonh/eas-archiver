@@ -15,7 +15,6 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string serverUrl = "";
     [ObservableProperty] private string domain = "";
     [ObservableProperty] private string username = "";
-    [ObservableProperty] private string password = "";
     [ObservableProperty] private string archiveDirectory = "mail_archive";
     [ObservableProperty] private int windowSize = 50;
     [ObservableProperty] private bool fixHeaders = true;
@@ -59,7 +58,6 @@ public partial class MainViewModel : ObservableObject
         ServerUrl = cfg.ServerUrl;
         Domain = cfg.Domain;
         Username = cfg.Username;
-        Password = cfg.Password;
         ArchiveDirectory = cfg.ArchiveDirectory;
         WindowSize = cfg.WindowSize;
         FixHeaders = cfg.FixHeaders;
@@ -80,14 +78,10 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        // Prompt for password if not configured
-        if (string.IsNullOrWhiteSpace(cfg.Password))
-        {
-            var pwd = RequestPassword is not null ? await RequestPassword() : null;
-            if (string.IsNullOrEmpty(pwd)) return;
-            Password = pwd;
-            cfg.Password = pwd;
-        }
+        // Always prompt for password — never stored in config
+        var pwd = RequestPassword is not null ? await RequestPassword() : null;
+        if (string.IsNullOrEmpty(pwd)) return;
+        cfg.Password = pwd;
 
         IsSyncing = true;
         StatusText = "Syncing…";
@@ -184,7 +178,7 @@ public partial class MainViewModel : ObservableObject
             ServerUrl = ServerUrl.Trim(),
             Domain = Domain.Trim(),
             Username = Username.Trim(),
-            Password = Password,
+            Password = "",
             ArchiveDirectory = ArchiveDirectory.Trim(),
             WindowSize = WindowSize,
             FixHeaders = FixHeaders,

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace EasArchiver;
 
@@ -22,6 +23,8 @@ public class EasConfig
     public string ServerUrl       { get; set; } = "";
     public string Domain          { get; set; } = "";
     public string Username        { get; set; } = "";
+    /// <summary>Runtime-only — never serialized to JSON. Always prompt interactively.</summary>
+    [JsonIgnore]
     public string Password        { get; set; } = "";
     public string ArchiveDirectory{ get; set; } = "mail_archive";
     public int    WindowSize      { get; set; } = 50;
