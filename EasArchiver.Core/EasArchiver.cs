@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Globalization;
@@ -108,6 +109,22 @@ public class EasArchiver
     }
 
     // ── Main flow ─────────────────────────────────────────────────────────────
+
+    /// <summary>Fetch the email folder list from the server (FolderSync only, no email sync).</summary>
+    public async Task<List<string>> ListFoldersAsync(SyncState state,
+        IProgress<SyncProgress>? progress = null, CancellationToken ct = default)
+    {
+        _progress = progress;
+        _ct = ct;
+
+        if (state.FolderSyncKey is null or "0")
+            await SendDeviceInfoAsync();
+
+        var allFolders = await FolderSyncAsync(state);
+        return allFolders.Select(kv => ResolveFolderLogicalPath(kv.Key, state.Folders))
+            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
 
     public Task RunAsync(SyncState state) =>
         RunAsync(state, null, CancellationToken.None);
@@ -527,6 +544,7 @@ public class EasArchiver
         }
 
         _requestCount++;
+        ReportProgress("Request");
 
         var wbxmlBytes = EasWbxml.Encode(body);
         var content    = new ByteArrayContent(wbxmlBytes);

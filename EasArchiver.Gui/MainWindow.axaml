@@ -4,7 +4,7 @@
         x:Class="EasArchiver.Gui.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="EAS Email Archiver"
-        Width="700" Height="650" MinWidth="500" MinHeight="500">
+        Width="750" Height="700" MinWidth="550" MinHeight="500">
 
     <Window.DataContext>
         <vm:MainViewModel />
@@ -12,15 +12,23 @@
 
     <DockPanel Margin="16">
 
-        <!-- Status bar -->
+        <!-- ── Status bar ──────────────────────────────────────────────── -->
         <Border DockPanel.Dock="Bottom" Margin="0,8,0,0" Padding="8,4"
                 Background="{DynamicResource SystemControlBackgroundListLowBrush}"
                 CornerRadius="4">
-            <TextBlock Text="{Binding StatusText}" />
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding StatusText}"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding ProgressText}"
+                           FontStyle="Italic" Opacity="0.8" Margin="12,0"
+                           VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding RequestCountText}"
+                           Opacity="0.6" VerticalAlignment="Center" />
+            </Grid>
         </Border>
 
-        <!-- Main content -->
-        <Grid RowDefinitions="Auto,*">
+        <!-- ── Main content ────────────────────────────────────────────── -->
+        <Grid RowDefinitions="Auto,*,Auto">
 
             <!-- Config section -->
             <Border Grid.Row="0" Padding="12" CornerRadius="6"
@@ -29,7 +37,7 @@
                 <StackPanel Spacing="8">
                     <TextBlock Text="Configuration" FontWeight="SemiBold" FontSize="16" />
 
-                    <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                    <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
                           RowSpacing="6" ColumnSpacing="8">
 
                         <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Server URL" />
@@ -51,15 +59,7 @@
                         <NumericUpDown Grid.Row="4" Grid.Column="1" Value="{Binding WindowSize}"
                                        Minimum="1" Maximum="500" HorizontalAlignment="Left" Width="120" />
 
-                        <TextBlock Grid.Row="5" Grid.Column="0" VerticalAlignment="Center" Text="Include Folders" />
-                        <TextBox   Grid.Row="5" Grid.Column="1" Text="{Binding IncludeFolders}"
-                                   Watermark="Inbox, Sent Items  (comma-separated, empty = all)" />
-
-                        <TextBlock Grid.Row="6" Grid.Column="0" VerticalAlignment="Center" Text="Exclude Folders" />
-                        <TextBox   Grid.Row="6" Grid.Column="1" Text="{Binding ExcludeFolders}"
-                                   Watermark="Deleted Items, Inbox/Spam  (comma-separated)" />
-
-                        <CheckBox Grid.Row="7" Grid.Column="1" IsChecked="{Binding FixHeaders}"
+                        <CheckBox Grid.Row="5" Grid.Column="1" IsChecked="{Binding FixHeaders}"
                                   Content="Fix non-ASCII MIME headers (RFC 2047)" />
                     </Grid>
 
@@ -69,6 +69,7 @@
                         <Button Content="Reload Config" Command="{Binding LoadConfigCommand}" />
                         <Border Width="1" Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                                 Margin="4,2" />
+                        <Button Content="List Folders" Command="{Binding ListFoldersCommand}" />
                         <Button Content="Start Sync" Command="{Binding StartSyncCommand}"
                                 Classes="accent" />
                         <Button Content="Stop" Command="{Binding StopSyncCommand}" />
@@ -76,24 +77,45 @@
                                 Margin="4,2" />
                         <Button Content="Reset Sync State" Command="{Binding ResetSyncStateCommand}" />
                     </StackPanel>
-
-                    <!-- Progress -->
-                    <TextBlock Text="{Binding ProgressText}" IsVisible="{Binding IsSyncing}"
-                               FontStyle="Italic" Opacity="0.8" />
                 </StackPanel>
             </Border>
 
-            <!-- Log output -->
+            <!-- Folder selection — fills remaining space -->
             <Border Grid.Row="1" Padding="8" CornerRadius="6"
                     BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-                    BorderThickness="1">
+                    BorderThickness="1" Margin="0,0,0,8"
+                    IsVisible="{Binding HasFolders}">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Log" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
+                        <TextBlock Text="Folders" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <Button Content="All" Command="{Binding SelectAllFoldersCommand}"
+                                Padding="8,2" FontSize="12" />
+                        <Button Content="None" Command="{Binding SelectNoneFoldersCommand}"
+                                Padding="8,2" FontSize="12" />
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding Folders}"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FolderItemViewModel">
+                                <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Path}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- Log — collapsible expander at bottom -->
+            <Expander Grid.Row="2" Header="Log" IsExpanded="{Binding ShowLog}"
+                      Margin="0,0,0,0" Padding="0">
+                <Border Padding="8" CornerRadius="0,0,6,6"
+                        BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                        BorderThickness="1,0,1,1"
+                        Height="180">
                     <ListBox ItemsSource="{Binding LogLines}"
                              FontFamily="Cascadia Mono, Consolas, monospace" FontSize="12"
                              ScrollViewer.VerticalScrollBarVisibility="Auto" />
-                </DockPanel>
-            </Border>
+                </Border>
+            </Expander>
 
         </Grid>
     </DockPanel>

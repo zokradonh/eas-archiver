@@ -18,13 +18,20 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string archiveDirectory = "mail_archive";
     [ObservableProperty] private int windowSize = 50;
     [ObservableProperty] private bool fixHeaders = true;
-    [ObservableProperty] private string includeFolders = "";
-    [ObservableProperty] private string excludeFolders = "";
+
+    // ── Folder list ─────────────────────────────────────────────────────────
+    public ObservableCollection<FolderItemViewModel> Folders { get; } = [];
+    [ObservableProperty] private bool hasFolders;
 
     // ── Sync state ──────────────────────────────────────────────────────────
     [ObservableProperty] private bool isSyncing;
+    [ObservableProperty] private bool isListingFolders;
     [ObservableProperty] private string statusText = "Ready";
     [ObservableProperty] private string progressText = "";
+    [ObservableProperty] private string requestCountText = "0 requests";
+    [ObservableProperty] private bool showLog;
+    private int _totalRequestCount;
+    private int _lastReportedCount;
 
     public ObservableCollection<string> LogLines { get; } = [];
 
@@ -35,6 +42,7 @@ public partial class MainViewModel : ObservableObject
     public Func<Task<string?>>? RequestPassword { get; set; }
 
     private CancellationTokenSource? _cts;
+    private string? _cachedPassword;
 
     public MainViewModel()
     {
@@ -61,10 +69,92 @@ public partial class MainViewModel : ObservableObject
         ArchiveDirectory = cfg.ArchiveDirectory;
         WindowSize = cfg.WindowSize;
         FixHeaders = cfg.FixHeaders;
-        IncludeFolders = string.Join(", ", cfg.Include);
-        ExcludeFolders = string.Join(", ", cfg.Exclude);
+        // Restore folder selection from saved Include list
+        LoadFolderSelection(cfg.Include);
         StatusText = "Configuration loaded";
     }
+
+    [RelayCommand(CanExecute = nameof(CanListFolders))]
+    private async Task ListFolders()
+    {
+        var cfg = BuildConfig();
+
+        if (string.IsNullOrWhiteSpace(cfg.ServerUrl) ||
+            string.IsNullOrWhiteSpace(cfg.Username))
+        {
+            StatusText = "Server URL and username are required";
+            return;
+        }
+
+        var pwd = await PromptPassword();
+        if (pwd is null) return;
+        cfg.Password = pwd;
+
+        IsListingFolders = true;
+        StatusText = "Fetching folders…";
+        LogLines.Clear();
+
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.Sink(new DelegateSink(AppendLog))
+            .CreateLogger();
+
+        var progress = new Progress<SyncProgress>(p =>
+        {
+            _totalRequestCount += p.RequestCount - _lastReportedCount;
+            _lastReportedCount = p.RequestCount;
+            RequestCountText = $"{_totalRequestCount} requests";
+        });
+        _lastReportedCount = 0;
+
+        try
+        {
+            var state = ConfigService.LoadState();
+            var archiver = new global::EasArchiver.EasArchiver(cfg);
+            var paths = await Task.Run(async () => await archiver.ListFoldersAsync(state, progress));
+            ConfigService.SaveState(state);
+
+            // Remember which folders were previously selected
+            var previouslySelected = Folders
+                .Where(f => f.IsSelected)
+                .Select(f => f.Path)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            Folders.Clear();
+            foreach (var path in paths)
+            {
+                // Pre-select if previously selected, or all if first load
+                bool selected = previouslySelected.Count == 0 || previouslySelected.Contains(path);
+                var item = new FolderItemViewModel(path) { IsSelected = selected };
+                item.PropertyChanged += (_, _) => NotifyFolderSelectionChanged();
+                Folders.Add(item);
+            }
+            HasFolders = Folders.Count > 0;
+            NotifyFolderSelectionChanged();
+
+            StatusText = $"{Folders.Count} folders found";
+        }
+        catch (EasAuthException)
+        {
+            StatusText = "Authentication failed — check username/password";
+            _cachedPassword = null;
+        }
+        catch (EasQuarantineException ex)
+        {
+            StatusText = $"Device not approved (quarantine) — ID: {ex.DeviceId}";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            await Log.CloseAndFlushAsync();
+            IsListingFolders = false;
+        }
+    }
+
+    private bool CanListFolders() => !IsSyncing && !IsListingFolders;
 
     [RelayCommand(CanExecute = nameof(CanStartSync))]
     private async Task StartSync()
@@ -78,9 +168,8 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        // Always prompt for password — never stored in config
-        var pwd = RequestPassword is not null ? await RequestPassword() : null;
-        if (string.IsNullOrEmpty(pwd)) return;
+        var pwd = await PromptPassword();
+        if (pwd is null) return;
         cfg.Password = pwd;
 
         IsSyncing = true;
@@ -91,21 +180,28 @@ public partial class MainViewModel : ObservableObject
 
         // Set up Serilog to write into our log panel
         Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Information()
+            .MinimumLevel.Debug()
             .WriteTo.Sink(new DelegateSink(AppendLog))
             .CreateLogger();
 
         var progress = new Progress<SyncProgress>(p =>
         {
-            ProgressText = p.Phase switch
+            if (p.Phase is not "Request")
             {
-                "DeviceInfo" => "Registering device…",
-                "FolderSync" => "Fetching folders…",
-                "Sync" => $"Syncing emails… ({p.FoldersTotal} folders)",
-                "Done" => $"Done — {p.EmailsNew} new email(s)",
-                _ => p.Phase
-            };
+                ProgressText = p.Phase switch
+                {
+                    "DeviceInfo" => "Registering device…",
+                    "FolderSync" => "Fetching folders…",
+                    "Sync" => $"Syncing emails… ({p.FoldersTotal} folders)",
+                    "Done" => $"Done — {p.EmailsNew} new email(s)",
+                    _ => p.Phase
+                };
+            }
+            _totalRequestCount += p.RequestCount - _lastReportedCount;
+            _lastReportedCount = p.RequestCount;
+            RequestCountText = $"{_totalRequestCount} requests";
         });
+        _lastReportedCount = 0;
 
         var state = ConfigService.LoadState();
 
@@ -131,6 +227,7 @@ public partial class MainViewModel : ObservableObject
         catch (EasAuthException)
         {
             StatusText = "Authentication failed — check username/password";
+            _cachedPassword = null;
         }
         catch (Exception ex)
         {
@@ -145,7 +242,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private bool CanStartSync() => !IsSyncing;
+    private bool CanStartSync() => !IsSyncing && Folders.Any(f => f.IsSelected);
 
     [RelayCommand(CanExecute = nameof(CanStopSync))]
     private void StopSync()
@@ -163,16 +260,64 @@ public partial class MainViewModel : ObservableObject
         StatusText = "Sync state reset — next sync will be a full sync";
     }
 
+    [RelayCommand]
+    private void SelectAllFolders()
+    {
+        foreach (var f in Folders) f.IsSelected = true;
+    }
+
+    [RelayCommand]
+    private void SelectNoneFolders()
+    {
+        foreach (var f in Folders) f.IsSelected = false;
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     partial void OnIsSyncingChanged(bool value)
     {
         StartSyncCommand.NotifyCanExecuteChanged();
         StopSyncCommand.NotifyCanExecuteChanged();
+        ListFoldersCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsListingFoldersChanged(bool value)
+    {
+        ListFoldersCommand.NotifyCanExecuteChanged();
+    }
+
+    private void NotifyFolderSelectionChanged()
+    {
+        StartSyncCommand.NotifyCanExecuteChanged();
+    }
+
+    private async Task<string?> PromptPassword()
+    {
+        if (_cachedPassword is not null) return _cachedPassword;
+        var pwd = RequestPassword is not null ? await RequestPassword() : null;
+        if (string.IsNullOrEmpty(pwd)) return null;
+        _cachedPassword = pwd;
+        return pwd;
+    }
+
+    private void LoadFolderSelection(List<string> include)
+    {
+        Folders.Clear();
+        foreach (var path in include.OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+        {
+            var item = new FolderItemViewModel(path);
+            item.PropertyChanged += (_, _) => NotifyFolderSelectionChanged();
+            Folders.Add(item);
+        }
+        HasFolders = Folders.Count > 0;
     }
 
     private EasConfig BuildConfig()
     {
+        // Selected folders → Include list (empty = sync all, handled by core)
+        var selected = Folders.Where(f => f.IsSelected).Select(f => f.Path).ToList();
+        var include = selected.Count == Folders.Count && Folders.Count > 0 ? [] : selected;
+
         return new EasConfig
         {
             ServerUrl = ServerUrl.Trim(),
@@ -182,16 +327,9 @@ public partial class MainViewModel : ObservableObject
             ArchiveDirectory = ArchiveDirectory.Trim(),
             WindowSize = WindowSize,
             FixHeaders = FixHeaders,
-            Include = ParseList(IncludeFolders),
-            Exclude = ParseList(ExcludeFolders),
+            Verbosity = 1,
+            Include = include,
         };
-    }
-
-    private static List<string> ParseList(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return [];
-        return value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(s => s.Length > 0).ToList();
     }
 
     private void AppendLog(string message)
