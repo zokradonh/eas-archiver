@@ -128,7 +128,7 @@ public class EasArchiver
         Log.Information("1/2  Fetching folder structure …");
         ReportProgress("FolderSync");
         var allFolders = await FolderSyncAsync(state);
-        var folders    = ApplyFolderFilter(allFolders, state.FolderTree);
+        var folders    = ApplyFolderFilter(allFolders, state.Folders);
         if (folders.Count < allFolders.Count)
             Log.Information("     {Total} folders found, {Active} after filter.\n",
                 allFolders.Count, folders.Count);
@@ -180,9 +180,8 @@ public class EasArchiver
     private async Task<Dictionary<string, FolderInfo>> FolderSyncAsync(SyncState state)
     {
         var syncKey = state.FolderSyncKey ?? "0";
-        // Start from persisted lists (subsequent syncs only return changes)
-        var folders  = new Dictionary<string, FolderInfo>(state.KnownFolders);
-        var tree     = new Dictionary<string, FolderInfo>(state.FolderTree);
+        // Start from persisted folder list (subsequent syncs only return changes)
+        var folders = new Dictionary<string, FolderInfo>(state.Folders);
         bool retried = false;
 
         while (true)
@@ -201,7 +200,6 @@ public class EasArchiver
                 syncKey = "0";
                 state.FolderSyncKey = null;
                 folders.Clear();
-                tree.Clear();
                 retried = true;
                 continue;
             }
@@ -220,44 +218,30 @@ public class EasArchiver
                 var id       = add.Element(NsFolderHier + "ServerId")?.Value;
                 var name     = add.Element(NsFolderHier + "DisplayName")?.Value;
                 var parentId = add.Element(NsFolderHier + "ParentId")?.Value ?? "0";
-                var type     = add.Element(NsFolderHier + "Type")?.Value;
+                var typeStr  = add.Element(NsFolderHier + "Type")?.Value;
                 if (id is null || name is null) continue;
 
-                // Track every folder for hierarchy resolution
-                tree[id] = new FolderInfo { Name = name, ParentId = parentId };
-
-                // Only include email folder types for syncing:
-                // 1=User mail, 2=Inbox, 3=Drafts, 4=Deleted, 5=Sent, 6=Outbox, 12=User mail
-                if (type is "1" or "2" or "3" or "4" or "5" or "6" or "12")
-                    folders[id] = new FolderInfo { Name = name, ParentId = parentId };
+                int.TryParse(typeStr, out var type);
+                folders[id] = new FolderInfo { Name = name, ParentId = parentId, Type = type };
             }
 
-            // Handle folder deletions
             foreach (var del in root.Descendants(NsFolderHier + "Delete"))
             {
                 var id = del.Element(NsFolderHier + "ServerId")?.Value;
                 if (id is not null)
-                {
                     folders.Remove(id);
-                    tree.Remove(id);
-                }
             }
 
-            // Handle folder updates (rename etc.)
             foreach (var upd in root.Descendants(NsFolderHier + "Update"))
             {
                 var id       = upd.Element(NsFolderHier + "ServerId")?.Value;
                 var name     = upd.Element(NsFolderHier + "DisplayName")?.Value;
                 var parentId = upd.Element(NsFolderHier + "ParentId")?.Value ?? "0";
-                var type     = upd.Element(NsFolderHier + "Type")?.Value;
+                var typeStr  = upd.Element(NsFolderHier + "Type")?.Value;
                 if (id is null || name is null) continue;
 
-                tree[id] = new FolderInfo { Name = name, ParentId = parentId };
-
-                if (type is "1" or "2" or "3" or "4" or "5" or "6" or "12")
-                    folders[id] = new FolderInfo { Name = name, ParentId = parentId };
-                else
-                    folders.Remove(id); // type changed to non-email → remove
+                int.TryParse(typeStr, out var type);
+                folders[id] = new FolderInfo { Name = name, ParentId = parentId, Type = type };
             }
 
             // MoreAvailable → another page of folders; also loop once after SyncKey=0
@@ -267,9 +251,10 @@ public class EasArchiver
         }
 
         // Persist for next run
-        state.KnownFolders = new Dictionary<string, FolderInfo>(folders);
-        state.FolderTree   = new Dictionary<string, FolderInfo>(tree);
-        return folders;
+        state.Folders = new Dictionary<string, FolderInfo>(folders);
+        // Return only email folders for syncing
+        return folders.Where(kv => kv.Value.IsEmailFolder)
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
     }
 
     /// <summary>Resolve the logical folder path (e.g. "Inbox/Projekte/2024") by walking up ParentId.</summary>
@@ -341,7 +326,7 @@ public class EasArchiver
         var folderPaths = new Dictionary<string, string>();
         foreach (var (id, _) in folders)
         {
-            var path = ResolveFolderPath(id, state.FolderTree);
+            var path = ResolveFolderPath(id, state.Folders);
             Directory.CreateDirectory(path);
             folderPaths[id] = path;
         }

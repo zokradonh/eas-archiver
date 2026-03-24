@@ -41,6 +41,10 @@ public class FolderInfo
 {
     public string Name     { get; set; } = "";
     public string ParentId { get; set; } = "0";
+    /// <summary>EAS folder type (1=User mail, 2=Inbox, 3=Drafts, etc.). 0 = unknown/non-email.</summary>
+    public int    Type     { get; set; }
+
+    public bool IsEmailFolder => Type is 1 or 2 or 3 or 4 or 5 or 6 or 12;
 }
 
 /// <summary>
@@ -51,8 +55,6 @@ public class SyncState
 {
     public string?                         FolderSyncKey { get; set; }
     public Dictionary<string, string>      FolderKeys    { get; set; } = [];
-    /// <summary>Email folder id → info, persisted across runs.</summary>
-    public Dictionary<string, FolderInfo>  KnownFolders  { get; set; } = [];
-    /// <summary>All folder id → info (including non-email), for hierarchy path resolution.</summary>
-    public Dictionary<string, FolderInfo>  FolderTree    { get; set; } = [];
+    /// <summary>All folders (email + non-email) for hierarchy path resolution. Email folders have IsEmailFolder = true.</summary>
+    public Dictionary<string, FolderInfo>  Folders       { get; set; } = [];
 }
