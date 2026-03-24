@@ -29,6 +29,12 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<string> LogLines { get; } = [];
 
+    /// <summary>
+    /// Interaction callback for requesting a password from the user.
+    /// Set by the View — the ViewModel only knows the signature, not the implementation.
+    /// </summary>
+    public Func<Task<string?>>? RequestPassword { get; set; }
+
     private CancellationTokenSource? _cts;
 
     public MainViewModel()
@@ -68,11 +74,19 @@ public partial class MainViewModel : ObservableObject
         var cfg = BuildConfig();
 
         if (string.IsNullOrWhiteSpace(cfg.ServerUrl) ||
-            string.IsNullOrWhiteSpace(cfg.Username) ||
-            string.IsNullOrWhiteSpace(cfg.Password))
+            string.IsNullOrWhiteSpace(cfg.Username))
         {
-            StatusText = "Server URL, username and password are required";
+            StatusText = "Server URL and username are required";
             return;
+        }
+
+        // Prompt for password if not configured
+        if (string.IsNullOrWhiteSpace(cfg.Password))
+        {
+            var pwd = RequestPassword is not null ? await RequestPassword() : null;
+            if (string.IsNullOrEmpty(pwd)) return;
+            Password = pwd;
+            cfg.Password = pwd;
         }
 
         IsSyncing = true;
