@@ -32,10 +32,18 @@ public class EasAuthException()
 public class EasArchiver
 {
     // App version (from csproj <Version>)
-    public static readonly string AppVersion =
+    public static readonly string AppVersion = FormatVersion(
         Assembly.GetExecutingAssembly()
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-            ?.InformationalVersion ?? "0.0.0";
+            ?.InformationalVersion ?? "0.0.0");
+
+    private static string FormatVersion(string informational)
+    {
+        var parts = informational.Split('+');
+        if (parts.Length > 1 && parts[1].Length >= 6)
+            return $"{parts[0]}+{parts[1][..6]}";
+        return parts[0];
+    }
 
     // EAS protocol version
     private const string EasVersion = "14.1";
