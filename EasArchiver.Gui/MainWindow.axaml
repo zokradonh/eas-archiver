@@ -37,7 +37,7 @@
                 <StackPanel Spacing="8">
                     <TextBlock Text="Configuration" FontWeight="SemiBold" FontSize="16" />
 
-                    <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+                    <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                           RowSpacing="6" ColumnSpacing="8">
 
                         <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Server URL" />
@@ -61,6 +61,11 @@
 
                         <CheckBox Grid.Row="5" Grid.Column="1" IsChecked="{Binding FixHeaders}"
                                   Content="Fix non-ASCII MIME headers (RFC 2047)" />
+
+                        <CheckBox Grid.Row="6" Grid.Column="1" IsChecked="{Binding SavePassword}"
+                                  IsEnabled="{Binding CanSavePassword}"
+                                  Content="Remember password (Windows DPAPI, current user only)"
+                                  ToolTip.Tip="Encrypts the password with Windows Data Protection API — only your Windows user account can decrypt it" />
                     </Grid>
 
                     <!-- Buttons -->

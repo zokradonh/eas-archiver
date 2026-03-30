@@ -19,6 +19,10 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private int windowSize = 50;
     [ObservableProperty] private bool fixHeaders = true;
 
+    // ── Password persistence (Windows DPAPI) ────────────────────────────
+    [ObservableProperty] private bool savePassword;
+    public bool CanSavePassword => CredentialService.IsSupported;
+
     // ── Folder list ─────────────────────────────────────────────────────────
     public ObservableCollection<FolderItemViewModel> Folders { get; } = [];
     [ObservableProperty] private bool hasFolders;
@@ -56,6 +60,11 @@ public partial class MainViewModel : ObservableObject
     {
         var cfg = BuildConfig();
         ConfigService.SaveConfig(cfg);
+        // Persist or delete DPAPI-encrypted password
+        if (SavePassword && _cachedPassword is not null)
+            CredentialService.Save(_cachedPassword);
+        else
+            CredentialService.Delete();
         StatusText = "Configuration saved";
     }
 
@@ -71,6 +80,13 @@ public partial class MainViewModel : ObservableObject
         FixHeaders = cfg.FixHeaders;
         // Restore folder selection from saved Include list
         LoadFolderSelection(cfg.Include);
+        // Try loading DPAPI-encrypted password
+        var storedPwd = CredentialService.Load();
+        if (storedPwd is not null)
+        {
+            _cachedPassword = storedPwd;
+            SavePassword = true;
+        }
         StatusText = "Configuration loaded";
     }
 
