@@ -574,6 +574,10 @@ public class EasArchiver
 
         var resp = await _http.PostAsync(url, content);
 
+        // ── BackOff monitoring (always logged) ───────────────────────────────
+        if (resp.Headers.TryGetValues("X-MS-BackOffDuration", out var backOffValues))
+            Log.Warning("⚠ X-MS-BackOffDuration: {Value} (cmd={Cmd})", string.Join(", ", backOffValues), cmd);
+
         // ── Verbosity: Response ───────────────────────────────────────────────
         if (_v >= 1) Log.Debug("← {StatusCode} {Reason}", (int)resp.StatusCode, resp.ReasonPhrase);
         if (_v >= 2)
