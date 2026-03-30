@@ -148,6 +148,9 @@ public partial class MainViewModel : ObservableObject
             HasFolders = Folders.Count > 0;
             NotifyFolderSelectionChanged();
 
+            if (SavePassword && _cachedPassword is not null)
+                CredentialService.Save(_cachedPassword);
+
             StatusText = $"{Folders.Count} folders found";
         }
         catch (EasAuthException)
@@ -226,6 +229,9 @@ public partial class MainViewModel : ObservableObject
             var archiver = new global::EasArchiver.EasArchiver(cfg);
             await Task.Run(async () => await archiver.RunAsync(state, progress, _cts.Token));
             ConfigService.SaveState(state);
+
+            if (SavePassword && _cachedPassword is not null)
+                CredentialService.Save(_cachedPassword);
 
             var archivePath = Path.IsPathRooted(cfg.ArchiveDirectory)
                 ? cfg.ArchiveDirectory
