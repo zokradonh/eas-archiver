@@ -21,6 +21,9 @@ public partial class MainViewModel : ObservableObject
 
     // ── Password persistence (Windows DPAPI) ────────────────────────────
     [ObservableProperty] private bool savePassword;
+
+    // ── Verbosity (0=V1, 1=V2, 2=V3) ────────────────────────────────────
+    [ObservableProperty] public partial int VerbosityIndex { get; set; }
     public bool CanSavePassword => CredentialService.IsSupported;
 
     // ── Folder list ─────────────────────────────────────────────────────────
@@ -349,7 +352,7 @@ public partial class MainViewModel : ObservableObject
             ArchiveDirectory = ArchiveDirectory.Trim(),
             WindowSize = WindowSize,
             FixHeaders = FixHeaders,
-            Verbosity = 1,
+            Verbosity = VerbosityIndex + 1,
             Include = include,
         };
     }
