@@ -37,7 +37,7 @@
                 <StackPanel Spacing="8">
                     <TextBlock Text="Configuration" FontWeight="SemiBold" FontSize="16" />
 
-                    <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                    <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                           RowSpacing="6" ColumnSpacing="8">
 
                         <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Server URL" />
@@ -78,6 +78,9 @@
                         <CheckBox Grid.Row="8" Grid.Column="1" IsChecked="{Binding DebugBlobs}"
                                   Content="Debug blobs (dump raw Sync WBXML to disk)"
                                   ToolTip.Tip="Writes raw WBXML blobs for each Sync command to the app data directory for debugging" />
+
+                        <CheckBox Grid.Row="9" Grid.Column="1" IsChecked="{Binding SyncAll}"
+                                  Content="Sync all folders (ignore folder selection below)" />
                     </Grid>
 
                     <!-- Buttons -->
@@ -103,14 +106,15 @@
                     BorderThickness="1" Margin="0,0,0,8"
                     IsVisible="{Binding HasFolders}">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,4"
+                                IsEnabled="{Binding !SyncAll}">
                         <TextBlock Text="Folders" FontWeight="SemiBold" VerticalAlignment="Center" />
                         <Button Content="All" Command="{Binding SelectAllFoldersCommand}"
                                 Padding="8,2" FontSize="12" />
                         <Button Content="None" Command="{Binding SelectNoneFoldersCommand}"
                                 Padding="8,2" FontSize="12" />
                     </StackPanel>
-                    <ListBox ItemsSource="{Binding Folders}"
+                    <ListBox ItemsSource="{Binding Folders}" IsEnabled="{Binding !SyncAll}"
                              ScrollViewer.VerticalScrollBarVisibility="Auto">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:FolderItemViewModel">

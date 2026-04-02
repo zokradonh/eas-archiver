@@ -30,6 +30,7 @@ public partial class MainViewModel : ObservableObject
     // ── Folder list ─────────────────────────────────────────────────────────
     public ObservableCollection<FolderItemViewModel> Folders { get; } = [];
     [ObservableProperty] private bool hasFolders;
+    [ObservableProperty] private bool syncAll = true;
 
     // ── Sync state ──────────────────────────────────────────────────────────
     [ObservableProperty] private bool isSyncing;
@@ -114,7 +115,7 @@ public partial class MainViewModel : ObservableObject
             Folders.Clear();
             foreach (var path in paths)
             {
-                bool selected = previouslySelected.Count == 0 || previouslySelected.Contains(path);
+                bool selected = SyncAll || previouslySelected.Count == 0 || previouslySelected.Contains(path);
                 var item = new FolderItemViewModel(path) { IsSelected = selected };
                 item.PropertyChanged += (_, _) => NotifyFolderSelectionChanged();
                 Folders.Add(item);
@@ -160,7 +161,7 @@ public partial class MainViewModel : ObservableObject
         _cts = null;
     }
 
-    private bool CanStartSync() => !IsSyncing && Folders.Any(f => f.IsSelected);
+    private bool CanStartSync() => !IsSyncing && (SyncAll || Folders.Any(f => f.IsSelected));
 
     [RelayCommand(CanExecute = nameof(CanStopSync))]
     private void StopSync()
@@ -278,6 +279,11 @@ public partial class MainViewModel : ObservableObject
         ListFoldersCommand.NotifyCanExecuteChanged();
     }
 
+    partial void OnSyncAllChanged(bool value)
+    {
+        StartSyncCommand.NotifyCanExecuteChanged();
+    }
+
     private void NotifyFolderSelectionChanged()
     {
         StartSyncCommand.NotifyCanExecuteChanged();
@@ -294,10 +300,11 @@ public partial class MainViewModel : ObservableObject
 
     private void LoadFolderSelection(List<string> include)
     {
+        SyncAll = include.Count == 0;
         Folders.Clear();
         foreach (var path in include.OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
         {
-            var item = new FolderItemViewModel(path);
+            var item = new FolderItemViewModel(path) { IsSelected = true };
             item.PropertyChanged += (_, _) => NotifyFolderSelectionChanged();
             Folders.Add(item);
         }
@@ -306,10 +313,6 @@ public partial class MainViewModel : ObservableObject
 
     private EasConfig BuildConfig()
     {
-        // Selected folders → Include list (empty = sync all, handled by core)
-        var selected = Folders.Where(f => f.IsSelected).Select(f => f.Path).ToList();
-        var include = selected.Count == Folders.Count && Folders.Count > 0 ? [] : selected;
-
         return new EasConfig
         {
             ServerUrl = ServerUrl.Trim(),
@@ -321,7 +324,7 @@ public partial class MainViewModel : ObservableObject
             FixHeaders = FixHeaders,
             DebugBlobs = DebugBlobs,
             Verbosity = VerbosityIndex + 1,
-            Include = include,
+            Include = SyncAll ? [] : Folders.Where(f => f.IsSelected).Select(f => f.Path).ToList(),
         };
     }
 
