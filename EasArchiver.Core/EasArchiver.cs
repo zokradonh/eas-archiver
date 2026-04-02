@@ -389,13 +389,20 @@ public class EasArchiver
             var responded = new HashSet<string>();
             var needMore  = new HashSet<string>();
 
-            foreach (var coll in root.Descendants(NsAirSync + "Collection"))
+            var allCollections = root.Descendants(NsAirSync + "Collection").ToList();
+            Log.Debug("  Sync response: {Count} Collection(s), active={Active}",
+                allCollections.Count, string.Join(",", active));
+
+            foreach (var coll in allCollections)
             {
                 var collId = coll.Element(NsAirSync + "CollectionId")?.Value;
+                Log.Debug("  Collection Id={CollId} (in active={InActive})",
+                    collId, collId is not null && active.Contains(collId));
                 if (collId is null || !active.Contains(collId)) continue;
                 responded.Add(collId);
 
                 var status = coll.Element(NsAirSync + "Status")?.Value;
+                Log.Debug("  Collection {CollId} Status={Status}", collId, status);
 
                 // Invalid SyncKey → reset and retry once
                 if (status is "3" or "4" or "165" && !retried.Contains(collId))
@@ -412,6 +419,9 @@ public class EasArchiver
                     state.FolderKeys[collId] = newKey;
 
                 var commands = coll.Element(NsAirSync + "Commands");
+                var addCount = commands?.Elements(NsAirSync + "Add").Count() ?? 0;
+                Log.Debug("  Collection {CollId} Commands={HasCmds} Add={AddCount}",
+                    collId, commands is not null, addCount);
                 if (commands is not null)
                 {
                     foreach (var add in commands.Elements(NsAirSync + "Add"))
@@ -493,7 +503,11 @@ public class EasArchiver
     {
         var serverId = addEl.Element(NsAirSync + "ServerId")?.Value ?? "";
         var appData  = addEl.Element(NsAirSync + "ApplicationData");
-        if (appData is null) return false;
+        if (appData is null)
+        {
+            Log.Debug("  SaveEmail: no ApplicationData for {ServerId}", serverId);
+            return false;
+        }
 
         var subject = appData.Element(NsEmail + "Subject")?.Value ?? "no_subject";
         var dateStr = appData.Element(NsEmail + "DateReceived")?.Value ?? "";
@@ -501,10 +515,15 @@ public class EasArchiver
         // Prefer MIME (Type=4), fall back to text (Type=1 or 2)
         string? content = null;
 
-        foreach (var body in appData.Descendants(NsAirSyncBase + "Body"))
+        var bodies = appData.Descendants(NsAirSyncBase + "Body").ToList();
+        Log.Debug("  SaveEmail: {ServerId} subject={Subject} bodies={BodyCount}",
+            serverId, subject, bodies.Count);
+        foreach (var body in bodies)
         {
             var type = body.Element(NsAirSyncBase + "Type")?.Value;
             var data = body.Element(NsAirSyncBase + "Data")?.Value;
+            Log.Debug("    Body Type={Type} DataLen={Len}",
+                type, data?.Length ?? 0);
             if (string.IsNullOrEmpty(data)) continue;
 
             if (type == "4")                    // MIME – ideal, use directly
