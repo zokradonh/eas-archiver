@@ -501,7 +501,7 @@ public class EasArchiver
 
     private async Task<bool> SaveEmailAsync(XElement addEl, string folderPath)
     {
-        var serverId = addEl.Element(NsAirSync + "ServerId")?.Value ?? "";
+        var serverId = addEl.Element(NsAirSync + "ServerId")?.Value ?? ""; // WARNING(andre) Not unique accross different sync states, but archive is persistent even accross sync states
         var appData  = addEl.Element(NsAirSync + "ApplicationData");
         if (appData is null)
         {
@@ -666,10 +666,7 @@ public class EasArchiver
             : Sanitize(dateStr);
         var safeSubject = Sanitize(subject);
         safeSubject = safeSubject[..Math.Min(60, safeSubject.Length)];
-        var hash        = Convert.ToHexString(
-                              MD5.HashData(Encoding.UTF8.GetBytes(serverId))
-                          )[..8].ToLower();
-        return Path.Combine(folder, $"{safeDate}_{safeSubject}_{hash}.eml");
+        return Path.Combine(folder, $"{safeDate}_{safeSubject}.eml");
     }
 
     private static string GetOsVersion()
