@@ -126,8 +126,11 @@ public class EasArchiver
         _ct = ct;
 
         if (state.FolderSyncKey is null or "0")
+        {
+            Log.Information("     Sending device information …");
+            ReportProgress("DeviceInfo");
             await SendDeviceInfoAsync();
-
+        }
         var allFolders = await FolderSyncAsync(state);
         return allFolders.Select(kv => ResolveFolderLogicalPath(kv.Key, state.Folders))
             .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
