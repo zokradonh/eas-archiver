@@ -78,9 +78,6 @@
                         <CheckBox Grid.Row="8" Grid.Column="1" IsChecked="{Binding DebugBlobs}"
                                   Content="Debug blobs (dump raw Sync WBXML to disk)"
                                   ToolTip.Tip="Writes raw WBXML blobs for each Sync command to the app data directory for debugging" />
-
-                        <CheckBox Grid.Row="9" Grid.Column="1" IsChecked="{Binding SyncAll}"
-                                  Content="Sync all folders (ignore folder selection below)" />
                     </Grid>
 
                     <!-- Buttons -->
@@ -106,6 +103,8 @@
                     BorderThickness="1" Margin="0,0,0,8"
                     IsVisible="{Binding HasFolders}">
                 <DockPanel>
+                    <CheckBox DockPanel.Dock="Top" IsChecked="{Binding SyncAll}"
+                              Content="Sync all folders (even newly created ones)" Margin="0,0,0,4" />
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,4"
                                 IsEnabled="{Binding !SyncAll}">
                         <TextBlock Text="Folders" FontWeight="SemiBold" VerticalAlignment="Center" />
