@@ -87,6 +87,7 @@ public partial class MainViewModel : ObservableObject
         WindowSize = cfg.WindowSize;
         FixHeaders = cfg.FixHeaders;
         DebugBlobs = cfg.DebugBlobs;
+        VerbosityIndex = cfg.Verbosity > 0 ? cfg.Verbosity - 1 : 0;
         // Restore folder selection from saved Include list
         LoadFolderSelection(cfg.Include);
         // Try loading DPAPI-encrypted password

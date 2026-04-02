@@ -69,7 +69,7 @@
 
                         <TextBlock Grid.Row="7" Grid.Column="0" VerticalAlignment="Center" Text="Verbosity" />
                         <ComboBox  Grid.Row="7" Grid.Column="1" SelectedIndex="{Binding VerbosityIndex}"
-                                   HorizontalAlignment="Left" Width="120">
+                                   HorizontalAlignment="Left" Width="150">
                             <ComboBoxItem Content="V1 — Standard" />
                             <ComboBoxItem Content="V2 — Verbose" />
                             <ComboBoxItem Content="V3 — Debug" />
