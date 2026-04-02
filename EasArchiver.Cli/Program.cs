@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using Serilog;
 
 namespace EasArchiver;
@@ -55,6 +56,14 @@ class Program
             writer.Flush();
             Console.WriteLine($"Written to {outPath}");
             return 0;
+        }
+
+        // ── Replay hex blob locally (diagnose sync issues) ──────────────────
+        if (args.Length >= 2 && args[0] == "--replay")
+        {
+            var hexPath = args[1];
+            var outDir  = args.Length >= 3 ? args[2] : "replay_output";
+            return ReplaySyncBlob(hexPath, outDir);
         }
 
         // ── Load configuration ───────────────────────────────────────────────
@@ -200,7 +209,124 @@ class Program
         return cfg;
     }
 
-private static string ReadPassword()
+private static int ReplaySyncBlob(string hexPath, string outDir)
+    {
+        XNamespace NsAirSync     = "AirSync:";
+        XNamespace NsAirSyncBase = "AirSyncBase:";
+        XNamespace NsEmail       = "Email:";
+
+        Console.WriteLine($"Reading hex blob: {hexPath}");
+        var hex = File.ReadAllText(hexPath).Trim();
+        var bytes = Convert.FromHexString(hex);
+        Console.WriteLine($"  Blob size: {bytes.Length:N0} bytes");
+
+        var root = EasWbxml.Decode(bytes);
+        Console.WriteLine($"  Root element: {root.Name}");
+
+        // Top-level status
+        var topStatus = root.Element(NsAirSync + "Status")?.Value;
+        Console.WriteLine($"  Top-level Status: {topStatus ?? "(none)"}");
+        if (topStatus is not null && topStatus != "1")
+        {
+            Console.WriteLine("  ⚠ Non-1 top status — batch rejected!");
+            return 1;
+        }
+
+        var collections = root.Descendants(NsAirSync + "Collection").ToList();
+        Console.WriteLine($"  Collections: {collections.Count}\n");
+
+        int totalEmails = 0;
+        Directory.CreateDirectory(outDir);
+
+        foreach (var coll in collections)
+        {
+            var collId  = coll.Element(NsAirSync + "CollectionId")?.Value ?? "?";
+            var status  = coll.Element(NsAirSync + "Status")?.Value;
+            var syncKey = coll.Element(NsAirSync + "SyncKey")?.Value;
+            var moreAvail = coll.Element(NsAirSync + "MoreAvailable") is not null;
+
+            Console.WriteLine($"  ── Collection {collId} ──");
+            Console.WriteLine($"     Status:        {status ?? "(none)"}");
+            Console.WriteLine($"     SyncKey:       {syncKey ?? "(none)"}");
+            Console.WriteLine($"     MoreAvailable: {moreAvail}");
+
+            if (status is not null && status != "1")
+            {
+                Console.WriteLine($"     ⚠ Status={status} → this collection would be SKIPPED!");
+                Console.WriteLine();
+                continue;
+            }
+
+            var commands = coll.Element(NsAirSync + "Commands");
+            if (commands is null)
+            {
+                Console.WriteLine("     Commands: (none)");
+                Console.WriteLine();
+                continue;
+            }
+
+            var adds = commands.Elements(NsAirSync + "Add").ToList();
+            Console.WriteLine($"     Commands/Add:  {adds.Count}");
+
+            int saved = 0;
+            foreach (var add in adds)
+            {
+                var serverId = add.Element(NsAirSync + "ServerId")?.Value ?? "?";
+                var appData  = add.Element(NsAirSync + "ApplicationData");
+                if (appData is null)
+                {
+                    Console.WriteLine($"       {serverId}: no ApplicationData!");
+                    continue;
+                }
+
+                var subject = appData.Element(NsEmail + "Subject")?.Value ?? "no_subject";
+                var bodies  = appData.Descendants(NsAirSyncBase + "Body").ToList();
+
+                string? content = null;
+                string bodyInfo = "no Body";
+
+                foreach (var body in bodies)
+                {
+                    var type = body.Element(NsAirSyncBase + "Type")?.Value;
+                    var data = body.Element(NsAirSyncBase + "Data")?.Value;
+                    bodyInfo = $"Type={type} DataLen={data?.Length ?? 0}";
+
+                    if (string.IsNullOrEmpty(data)) continue;
+                    if (type == "4") { content = data; break; }
+                    if (content is null)
+                    {
+                        var from = appData.Element(NsEmail + "From")?.Value ?? "";
+                        var to   = appData.Element(NsEmail + "To")?.Value   ?? "";
+                        var date = appData.Element(NsEmail + "DateReceived")?.Value ?? "";
+                        content =
+                            $"From: {from}\r\nTo: {to}\r\nSubject: {subject}\r\n" +
+                            $"Date: {date}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n" +
+                            data;
+                    }
+                }
+
+                if (content is not null)
+                {
+                    var emlPath = Path.Combine(outDir, $"{serverId.Replace(":", "_")}.eml");
+                    File.WriteAllText(emlPath, content, new UTF8Encoding(false));
+                    saved++;
+                }
+                else
+                {
+                    Console.WriteLine($"       {serverId}: {bodyInfo} → NO content to save");
+                }
+            }
+
+            totalEmails += saved;
+            Console.WriteLine($"     Saved: {saved} email(s)");
+            Console.WriteLine();
+        }
+
+        Console.WriteLine($"Total: {totalEmails} email(s) saved to {Path.GetFullPath(outDir)}");
+        return 0;
+    }
+
+    private static string ReadPassword()
     {
         var sb = new StringBuilder();
         while (true)
