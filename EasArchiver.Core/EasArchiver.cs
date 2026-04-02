@@ -604,7 +604,7 @@ public class EasArchiver
         if (responseBytes.Length == 0) return null;
 
         // Save Sync response blobs as hex files for debugging
-        if (_cfg.DebugBlobs && cmd == "Sync")
+        if (_cfg.DebugBlobs)
         {
             var blobDir = Path.Combine(AppDataDir, "debug", "syncblobs");
             Directory.CreateDirectory(blobDir);

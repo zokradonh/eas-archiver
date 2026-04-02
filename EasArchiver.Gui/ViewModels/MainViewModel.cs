@@ -18,6 +18,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string archiveDirectory = "mail_archive";
     [ObservableProperty] private int windowSize = 50;
     [ObservableProperty] private bool fixHeaders = true;
+    [ObservableProperty] public partial bool DebugBlobs { get; set; }
 
     // ── Password persistence (Windows DPAPI) ────────────────────────────
     [ObservableProperty] private bool savePassword;
@@ -84,6 +85,7 @@ public partial class MainViewModel : ObservableObject
         ArchiveDirectory = cfg.ArchiveDirectory;
         WindowSize = cfg.WindowSize;
         FixHeaders = cfg.FixHeaders;
+        DebugBlobs = cfg.DebugBlobs;
         // Restore folder selection from saved Include list
         LoadFolderSelection(cfg.Include);
         // Try loading DPAPI-encrypted password
@@ -317,6 +319,7 @@ public partial class MainViewModel : ObservableObject
             ArchiveDirectory = ArchiveDirectory.Trim(),
             WindowSize = WindowSize,
             FixHeaders = FixHeaders,
+            DebugBlobs = DebugBlobs,
             Verbosity = VerbosityIndex + 1,
             Include = include,
         };

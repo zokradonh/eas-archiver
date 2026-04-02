@@ -37,7 +37,7 @@
                 <StackPanel Spacing="8">
                     <TextBlock Text="Configuration" FontWeight="SemiBold" FontSize="16" />
 
-                    <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                    <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                           RowSpacing="6" ColumnSpacing="8">
 
                         <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Server URL" />
@@ -74,6 +74,10 @@
                             <ComboBoxItem Content="V2 — Verbose" />
                             <ComboBoxItem Content="V3 — Debug" />
                         </ComboBox>
+
+                        <CheckBox Grid.Row="8" Grid.Column="1" IsChecked="{Binding DebugBlobs}"
+                                  Content="Debug blobs (dump raw Sync WBXML to disk)"
+                                  ToolTip.Tip="Writes raw WBXML blobs for each Sync command to the app data directory for debugging" />
                     </Grid>
 
                     <!-- Buttons -->
