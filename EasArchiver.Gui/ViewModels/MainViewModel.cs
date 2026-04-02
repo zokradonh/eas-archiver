@@ -148,7 +148,7 @@ public partial class MainViewModel : ObservableObject
             }
         }, async (archiver, state, progress, ct) =>
         {
-            await Task.Run(async () => await archiver.RunAsync(state, progress, ct), ct);
+            await Task.Run(async () => await archiver.ArchiveAsync(state, progress, ct), ct);
 
             var dir = ArchiveDirectory.Trim();
             var archivePath = Path.IsPathRooted(dir) ? dir : Path.GetFullPath(dir);

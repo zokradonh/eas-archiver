@@ -134,7 +134,7 @@ class Program
         };
         try
         {
-            await archiver.RunAsync(state);
+            await archiver.ArchiveAsync(state);
             ConfigService.SaveState(state);
             Log.Information("\nArchive: {ArchiveDir}", Path.GetFullPath(easCfg.ArchiveDirectory));
             return 0;

@@ -134,10 +134,10 @@ public class EasArchiver
             .ToList();
     }
 
-    public Task RunAsync(SyncState state) =>
-        RunAsync(state, null, CancellationToken.None);
+    public Task ArchiveAsync(SyncState state) =>
+        ArchiveAsync(state, null, CancellationToken.None);
 
-    public async Task RunAsync(SyncState state, IProgress<SyncProgress>? progress, CancellationToken ct = default)
+    public async Task ArchiveAsync(SyncState state, IProgress<SyncProgress>? progress, CancellationToken ct = default)
     {
         _progress = progress;
         _ct = ct;
