@@ -99,48 +99,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanListFolders))]
     private async Task ListFolders()
     {
-        var cfg = BuildConfig();
-
-        if (string.IsNullOrWhiteSpace(cfg.ServerUrl) ||
-            string.IsNullOrWhiteSpace(cfg.Username))
-        {
-            StatusText = "Server URL and username are required";
-            return;
-        }
-
-        var pwd = await PromptPassword();
-        if (pwd is null) return;
-        cfg.Password = pwd;
-
         IsListingFolders = true;
-        StatusText = "Fetching folders…";
-        LogLines.Clear();
-
-        Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Debug()
-            .WriteTo.Sink(new DelegateSink(AppendLog))
-            .WriteTo.File(LogFile,
-                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
-                rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 14)
-            .CreateLogger();
-
-        var progress = new Progress<SyncProgress>(p =>
+        await RunEasOperationAsync("Fetching folders…", null, async (archiver, state, progress, ct) =>
         {
-            _totalRequestCount += p.RequestCount - _lastReportedCount;
-            _lastReportedCount = p.RequestCount;
-            RequestCountText = $"{_totalRequestCount} requests";
-        });
-        _lastReportedCount = 0;
+            var paths = await Task.Run(async () => await archiver.ListFoldersAsync(state, progress, ct), ct);
 
-        try
-        {
-            var state = ConfigService.LoadState();
-            var archiver = new global::EasArchiver.EasArchiver(cfg);
-            var paths = await Task.Run(async () => await archiver.ListFoldersAsync(state, progress));
-            ConfigService.SaveState(state);
-
-            // Remember which folders were previously selected
             var previouslySelected = Folders
                 .Where(f => f.IsSelected)
                 .Select(f => f.Path)
@@ -149,7 +112,6 @@ public partial class MainViewModel : ObservableObject
             Folders.Clear();
             foreach (var path in paths)
             {
-                // Pre-select if previously selected, or all if first load
                 bool selected = previouslySelected.Count == 0 || previouslySelected.Contains(path);
                 var item = new FolderItemViewModel(path) { IsSelected = selected };
                 item.PropertyChanged += (_, _) => NotifyFolderSelectionChanged();
@@ -158,29 +120,9 @@ public partial class MainViewModel : ObservableObject
             HasFolders = Folders.Count > 0;
             NotifyFolderSelectionChanged();
 
-            if (SavePassword && _cachedPassword is not null)
-                CredentialService.Save(_cachedPassword);
-
-            StatusText = $"{Folders.Count} folders found";
-        }
-        catch (EasAuthException)
-        {
-            StatusText = "Authentication failed — check username/password";
-            _cachedPassword = null;
-        }
-        catch (EasQuarantineException ex)
-        {
-            StatusText = $"Device not approved (quarantine) — ID: {ex.DeviceId}";
-        }
-        catch (Exception ex)
-        {
-            StatusText = $"Error: {ex.Message}";
-        }
-        finally
-        {
-            await Log.CloseAndFlushAsync();
-            IsListingFolders = false;
-        }
+            return $"{Folders.Count} folders found";
+        });
+        IsListingFolders = false;
     }
 
     private bool CanListFolders() => !IsSyncing && !IsListingFolders;
@@ -188,36 +130,10 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanStartSync))]
     private async Task StartSync()
     {
-        var cfg = BuildConfig();
-
-        if (string.IsNullOrWhiteSpace(cfg.ServerUrl) ||
-            string.IsNullOrWhiteSpace(cfg.Username))
-        {
-            StatusText = "Server URL and username are required";
-            return;
-        }
-
-        var pwd = await PromptPassword();
-        if (pwd is null) return;
-        cfg.Password = pwd;
-
         IsSyncing = true;
-        StatusText = "Syncing…";
-        ProgressText = "";
-        LogLines.Clear();
         _cts = new CancellationTokenSource();
-
-        // Set up Serilog to write into our log panel
-        Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Debug()
-            .WriteTo.Sink(new DelegateSink(AppendLog))
-            .WriteTo.File(LogFile,
-                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
-                rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 14)
-            .CreateLogger();
-
-        var progress = new Progress<SyncProgress>(p =>
+        ProgressText = "";
+        await RunEasOperationAsync("Syncing…", p =>
         {
             if (p.Phase is not "Request")
             {
@@ -230,52 +146,16 @@ public partial class MainViewModel : ObservableObject
                     _ => p.Phase
                 };
             }
-            _totalRequestCount += p.RequestCount - _lastReportedCount;
-            _lastReportedCount = p.RequestCount;
-            RequestCountText = $"{_totalRequestCount} requests";
+        }, async (archiver, state, progress, ct) =>
+        {
+            await Task.Run(async () => await archiver.RunAsync(state, progress, ct), ct);
+
+            var dir = ArchiveDirectory.Trim();
+            var archivePath = Path.IsPathRooted(dir) ? dir : Path.GetFullPath(dir);
+            return $"Done — archive: {archivePath}";
         });
-        _lastReportedCount = 0;
-
-        var state = ConfigService.LoadState();
-
-        try
-        {
-            var archiver = new global::EasArchiver.EasArchiver(cfg);
-            await Task.Run(async () => await archiver.RunAsync(state, progress, _cts.Token));
-            ConfigService.SaveState(state);
-
-            if (SavePassword && _cachedPassword is not null)
-                CredentialService.Save(_cachedPassword);
-
-            var archivePath = Path.IsPathRooted(cfg.ArchiveDirectory)
-                ? cfg.ArchiveDirectory
-                : Path.GetFullPath(cfg.ArchiveDirectory);
-            StatusText = $"Done — archive: {archivePath}";
-        }
-        catch (OperationCanceledException)
-        {
-            StatusText = "Sync cancelled";
-        }
-        catch (EasQuarantineException ex)
-        {
-            StatusText = $"Device not approved (quarantine) — ID: {ex.DeviceId}";
-        }
-        catch (EasAuthException)
-        {
-            StatusText = "Authentication failed — check username/password";
-            _cachedPassword = null;
-        }
-        catch (Exception ex)
-        {
-            StatusText = $"Error: {ex.Message}";
-            AppendLog($"ERROR: {ex}");
-        }
-        finally
-        {
-            await Log.CloseAndFlushAsync();
-            IsSyncing = false;
-            _cts = null;
-        }
+        IsSyncing = false;
+        _cts = null;
     }
 
     private bool CanStartSync() => !IsSyncing && Folders.Any(f => f.IsSelected);
@@ -306,6 +186,80 @@ public partial class MainViewModel : ObservableObject
     private void SelectNoneFolders()
     {
         foreach (var f in Folders) f.IsSelected = false;
+    }
+
+    // ── Shared EAS operation runner ────────────────────────────────────────
+
+    private async Task RunEasOperationAsync(string statusLabel,
+        Action<SyncProgress>? onProgress,
+        Func<EasArchiver, SyncState, IProgress<SyncProgress>, CancellationToken, Task<string>> operation)
+    {
+        var cfg = BuildConfig();
+
+        if (string.IsNullOrWhiteSpace(cfg.ServerUrl) ||
+            string.IsNullOrWhiteSpace(cfg.Username))
+        {
+            StatusText = "Server URL and username are required";
+            return;
+        }
+
+        var pwd = await PromptPassword();
+        if (pwd is null) return;
+        cfg.Password = pwd;
+
+        StatusText = statusLabel;
+        LogLines.Clear();
+
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.Sink(new DelegateSink(AppendLog))
+            .WriteTo.File(LogFile,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 14)
+            .CreateLogger();
+
+        var progress = new Progress<SyncProgress>(p =>
+        {
+            onProgress?.Invoke(p);
+            _totalRequestCount += p.RequestCount - _lastReportedCount;
+            _lastReportedCount = p.RequestCount;
+            RequestCountText = $"{_totalRequestCount} requests";
+        });
+        _lastReportedCount = 0;
+
+        try
+        {
+            var state = ConfigService.LoadState();
+            var archiver = new EasArchiver(cfg);
+            StatusText = await operation(archiver, state, progress, _cts?.Token ?? CancellationToken.None);
+            ConfigService.SaveState(state);
+
+            if (SavePassword && _cachedPassword is not null)
+                CredentialService.Save(_cachedPassword);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "Sync cancelled";
+        }
+        catch (EasAuthException)
+        {
+            StatusText = "Authentication failed — check username/password";
+            _cachedPassword = null;
+        }
+        catch (EasQuarantineException ex)
+        {
+            StatusText = $"Device not approved (quarantine) — ID: {ex.DeviceId}";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Error: {ex.Message}";
+            AppendLog($"ERROR: {ex}");
+        }
+        finally
+        {
+            await Log.CloseAndFlushAsync();
+        }
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
