@@ -22,17 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.*" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.*" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.*" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="10.*" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.*" />
-
-    <None Update="appsettings.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-
-    <PackageReference Include="Serilog" Version="4.*" />
+<PackageReference Include="Serilog" Version="4.*" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.*" />
     <PackageReference Include="Serilog.Sinks.File" Version="6.*" />
   </ItemGroup>

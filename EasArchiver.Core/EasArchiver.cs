@@ -46,7 +46,7 @@ public class EasArchiver
     }
 
     // EAS protocol version
-    private const string EasVersion = "14.1";
+    private const string EasVersion = "16.1";
     private static readonly string DeviceType =
         RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "WindowsPC" :
         RuntimeInformation.IsOSPlatform(OSPlatform.OSX)     ? "MacOS" :

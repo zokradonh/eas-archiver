@@ -4,7 +4,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace EasArchiver.Gui.Services;
+namespace EasArchiver;
 
 /// <summary>
 /// Persists a password encrypted with Windows DPAPI (CurrentUser scope).

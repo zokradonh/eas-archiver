@@ -1,18 +1,13 @@
 using System;
 using System.IO;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
 using Serilog;
 
 namespace EasArchiver;
 
 class Program
 {
-    private static readonly string StateFile = Path.Combine(
-        EasArchiver.AppDataDir, "eas_sync_state.json");
-
     private static readonly string LogFile = Path.Combine(
         EasArchiver.AppDataDir, "eas-archiver.log");
 
@@ -62,34 +57,32 @@ class Program
             return 0;
         }
 
-        // ── Normalize -v / -vv / -vvv → --Eas:Verbosity=N ───────────────────
-        args = NormalizeVerbosityArgs(args);
-
         // ── Load configuration ───────────────────────────────────────────────
-        // Order (later overrides earlier):
-        //   1. appsettings.json          (app directory – defaults)
-        //   2. appsettings.local.json    (app directory – local overrides)
-        //   3. config.json               (AppDataDir – user settings)
-        //   4. Environment variables     (EAS__Username etc.)
-        //   5. Command line arguments    (--Eas:Username=...)
-        var config = new ConfigurationBuilder()
-            .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
-            .AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: false)
-            .AddJsonFile(Path.Combine(EasArchiver.AppDataDir, "config.json"), optional: true, reloadOnChange: false)
-            .AddEnvironmentVariables()
-            .AddCommandLine(args)
-            .Build();
+        var easCfg = ConfigService.LoadConfig();
 
-        var easCfg = config.GetSection("Eas").Get<EasConfig>() ?? new EasConfig();
-
-        // ── Parse --include / --exclude from CLI (supports multiple) ─────────
+        // ── Apply CLI overrides ──────────────────────────────────────────────
         foreach (var arg in args)
         {
             if (arg.StartsWith("--include=", StringComparison.OrdinalIgnoreCase))
                 easCfg.Include.Add(arg["--include=".Length..]);
             else if (arg.StartsWith("--exclude=", StringComparison.OrdinalIgnoreCase))
                 easCfg.Exclude.Add(arg["--exclude=".Length..]);
+            else if (arg is "-v" or "--verbose" or "--verbose=1")
+                easCfg.Verbosity = 1;
+            else if (arg is "-vv" or "--verbose=2")
+                easCfg.Verbosity = 2;
+            else if (arg is "-vvv" or "--verbose=3")
+                easCfg.Verbosity = 3;
+            else if (arg is "--debug-blobs")
+                easCfg.DebugBlobs = true;
+        }
+
+        // Try loading stored password (DPAPI) before prompting
+        if (string.IsNullOrWhiteSpace(easCfg.Password))
+        {
+            var stored = CredentialService.Load();
+            if (stored is not null)
+                easCfg.Password = stored;
         }
 
         // Prompt for missing required fields interactively
@@ -121,12 +114,12 @@ class Program
         Log.Information("");
 
         // ── Load sync state ──────────────────────────────────────────────────
-        var state = LoadState(StateFile);
+        var state = ConfigService.LoadState();
 
         if (args.Contains("--reset"))
         {
             state = new SyncState();
-            SaveState(StateFile, state);
+            ConfigService.SaveState(state);
             Log.Information("Sync state has been reset.\n");
         }
 
@@ -142,7 +135,7 @@ class Program
         try
         {
             await archiver.RunAsync(state);
-            SaveState(StateFile, state);
+            ConfigService.SaveState(state);
             Log.Information("\nArchive: {ArchiveDir}", Path.GetFullPath(easCfg.ArchiveDirectory));
             return 0;
         }
@@ -207,25 +200,7 @@ class Program
         return cfg;
     }
 
-    private static string[] NormalizeVerbosityArgs(string[] args)
-    {
-        var result = new List<string>();
-        foreach (var arg in args)
-        {
-            result.Add(arg switch
-            {
-                "-vvv" or "--verbose=3" => "--Eas:Verbosity=3",
-                "-vv"  or "--verbose=2" => "--Eas:Verbosity=2",
-                "-v"   or "--verbose"
-                       or "--verbose=1" => "--Eas:Verbosity=1",
-                "--debug-blobs"         => "--Eas:DebugBlobs=true",
-                _                       => arg,
-            });
-        }
-        return result.ToArray();
-    }
-
-    private static string ReadPassword()
+private static string ReadPassword()
     {
         var sb = new StringBuilder();
         while (true)
@@ -238,23 +213,5 @@ class Program
                 sb.Append(key.KeyChar);
         }
         return sb.ToString();
-    }
-
-    private static SyncState LoadState(string path)
-    {
-        if (!File.Exists(path)) return new SyncState();
-        try
-        {
-            var json = File.ReadAllText(path);
-            return JsonSerializer.Deserialize<SyncState>(json) ?? new SyncState();
-        }
-        catch { return new SyncState(); }
-    }
-
-    private static void SaveState(string path, SyncState state)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path,
-            JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true }));
     }
 }

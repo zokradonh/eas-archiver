@@ -48,6 +48,9 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public Func<Task<string?>>? RequestPassword { get; set; }
 
+    private static readonly string LogFile = Path.Combine(
+        EasArchiver.AppDataDir, "eas-archiver.log");
+
     private CancellationTokenSource? _cts;
     private string? _cachedPassword;
 
@@ -116,6 +119,10 @@ public partial class MainViewModel : ObservableObject
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
             .WriteTo.Sink(new DelegateSink(AppendLog))
+            .WriteTo.File(LogFile,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 14)
             .CreateLogger();
 
         var progress = new Progress<SyncProgress>(p =>
@@ -204,6 +211,10 @@ public partial class MainViewModel : ObservableObject
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
             .WriteTo.Sink(new DelegateSink(AppendLog))
+            .WriteTo.File(LogFile,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 14)
             .CreateLogger();
 
         var progress = new Progress<SyncProgress>(p =>

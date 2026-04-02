@@ -1,9 +1,9 @@
 using System.IO;
 using System.Text.Json;
 
-namespace EasArchiver.Gui.Services;
+namespace EasArchiver;
 
-/// <summary>Loads/saves EasConfig from/to config.json in the app data directory.</summary>
+/// <summary>Loads/saves EasConfig and SyncState from/to the app data directory.</summary>
 public static class ConfigService
 {
     private static readonly string ConfigPath =
