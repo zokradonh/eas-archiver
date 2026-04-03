@@ -50,6 +50,21 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public Func<Task<string?>>? RequestPassword { get; set; }
 
+    /// <summary>
+    /// Interaction callback for browsing for a folder.
+    /// Set by the View.
+    /// </summary>
+    public Func<string?, Task<string?>>? BrowseFolder { get; set; }
+
+    [RelayCommand]
+    private async Task BrowseArchiveDir()
+    {
+        if (BrowseFolder is null) return;
+        var result = await BrowseFolder(ArchiveDirectory.Trim());
+        if (result is not null)
+            ArchiveDirectory = result;
+    }
+
     private static readonly string LogFile = Path.Combine(
         EasArchiver.AppDataDir, "eas-archiver.log");
 

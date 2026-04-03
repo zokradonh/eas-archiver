@@ -53,8 +53,12 @@
                         <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding Username}" />
 
                         <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Archive Directory" />
-                        <TextBox   Grid.Row="3" Grid.Column="1" Text="{Binding ArchiveDirectory}"
-                                   Watermark="mail_archive or D:\MailArchive" />
+                        <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*,Auto">
+                            <TextBox Grid.Column="0" Text="{Binding ArchiveDirectory}"
+                                     Watermark="mail_archive or D:\MailArchive" />
+                            <Button Grid.Column="1" Content="Browse…" Margin="4,0,0,0"
+                                    Command="{Binding BrowseArchiveDirCommand}" />
+                        </Grid>
 
                         <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="Window Size" />
                         <NumericUpDown Grid.Row="4" Grid.Column="1" Value="{Binding WindowSize}"
