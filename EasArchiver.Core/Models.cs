@@ -3,6 +3,13 @@ using System.Text.Json.Serialization;
 
 namespace EasArchiver;
 
+/// <summary>Authentication method for the EAS server.</summary>
+public enum AuthMode
+{
+    Basic,
+    Ntlm
+}
+
 /// <summary>Progress information reported during sync.</summary>
 public class SyncProgress
 {
@@ -37,6 +44,9 @@ public class EasConfig
     public List<string> Include   { get; set; } = [];
     /// <summary>Skip folders matching these paths. Matches subfolders too. Applied after Include.</summary>
     public List<string> Exclude   { get; set; } = [];
+    /// <summary>Authentication mode: Basic (default) or Ntlm.</summary>
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public AuthMode Auth          { get; set; } = AuthMode.Ntlm;
 }
 
 /// <summary>Folder metadata from FolderSync (persisted for hierarchy resolution).</summary>

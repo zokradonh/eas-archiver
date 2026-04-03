@@ -105,15 +105,27 @@ public class EasArchiver : IDisposable
         _v   = cfg.Verbosity;
 
         _handler = new HttpClientHandler { CookieContainer = new System.Net.CookieContainer() };
+
+        if (cfg.Auth == AuthMode.Ntlm)
+        {
+            var domain = string.IsNullOrEmpty(cfg.Domain) ? null : cfg.Domain;
+            _handler.Credentials = new System.Net.NetworkCredential(cfg.Username, cfg.Password, domain ?? "");
+            _handler.PreAuthenticate = true;
+        }
+
         _http = new HttpClient(_handler);
+        if (cfg.Verbosity >= 2) Log.Debug("Initialized HttpClient with Auth={AuthMode}", cfg.Auth);
         _http.DefaultRequestHeaders.Add("MS-ASProtocolVersion", EasVersion);
         _http.DefaultRequestHeaders.TryAddWithoutValidation(
             "User-Agent",
             $"EasArchiver/{AppVersion} ({OsVersion}; DeviceType={DeviceType})");
 
-        var creds = BuildBasicAuth(cfg);
-        _http.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Basic", creds);
+        if (cfg.Auth == AuthMode.Basic)
+        {
+            var creds = BuildBasicAuth(cfg);
+            _http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Basic", creds);
+        }
     }
 
     // ── Main flow ─────────────────────────────────────────────────────────────
