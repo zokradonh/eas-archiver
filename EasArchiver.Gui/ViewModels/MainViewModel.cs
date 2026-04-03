@@ -235,7 +235,7 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var state = ConfigService.LoadState();
-            var archiver = new EasArchiver(cfg);
+            using var archiver = new EasArchiver(cfg);
             StatusText = await operation(archiver, state, progress, _cts?.Token ?? CancellationToken.None);
             ConfigService.SaveState(state);
 

@@ -133,7 +133,7 @@ class Program
         }
 
         // ── Start archiving ──────────────────────────────────────────────────
-        var archiver = new EasArchiver(easCfg);
+        using var archiver = new EasArchiver(easCfg);
         archiver.ConfirmContinue = count =>
         {
             Console.Write($"\n[{count} requests sent] Continue? [Y/n] ");

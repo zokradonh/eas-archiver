@@ -29,7 +29,7 @@ public class EasAuthException()
 
 // ── Archiver ─────────────────────────────────────────────────────────────────
 
-public class EasArchiver
+public class EasArchiver : IDisposable
 {
     // App version (from csproj <Version>)
     public static readonly string AppVersion = FormatVersion(
@@ -767,4 +767,11 @@ public class EasArchiver
 
     // Compact XML builder
     private static XElement Xml(XName name, params object[] content) => new(name, content);
+
+    public void Dispose()
+    {
+        _http.Dispose();
+        _handler.Dispose();
+        GC.SuppressFinalize(this);
+    }
 }
