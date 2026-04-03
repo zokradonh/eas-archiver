@@ -390,19 +390,14 @@ public class EasArchiver : IDisposable
             var needMore  = new HashSet<string>();
 
             var allCollections = root.Descendants(NsAirSync + "Collection").ToList();
-            Log.Debug("  Sync response: {Count} Collection(s), active={Active}",
-                allCollections.Count, string.Join(",", active));
 
             foreach (var coll in allCollections)
             {
                 var collId = coll.Element(NsAirSync + "CollectionId")?.Value;
-                Log.Debug("  Collection Id={CollId} (in active={InActive})",
-                    collId, collId is not null && active.Contains(collId));
                 if (collId is null || !active.Contains(collId)) continue;
                 responded.Add(collId);
 
                 var status = coll.Element(NsAirSync + "Status")?.Value;
-                Log.Debug("  Collection {CollId} Status={Status}", collId, status);
 
                 // Invalid SyncKey → reset and retry once
                 if (status is "3" or "4" or "165" && !retried.Contains(collId))
@@ -420,8 +415,6 @@ public class EasArchiver : IDisposable
 
                 var commands = coll.Element(NsAirSync + "Commands");
                 var addCount = commands?.Elements(NsAirSync + "Add").Count() ?? 0;
-                Log.Debug("  Collection {CollId} Commands={HasCmds} Add={AddCount}",
-                    collId, commands is not null, addCount);
                 if (commands is not null)
                 {
                     foreach (var add in commands.Elements(NsAirSync + "Add"))
@@ -453,9 +446,9 @@ public class EasArchiver : IDisposable
         // Log results per folder
         foreach (var (id, info) in folders)
         {
-            var count = counts.GetValueOrDefault(id);
-            Log.Information("     {FolderName,-45}{Result}", info.Name,
-                count > 0 ? $"{count,4} new mail(s)" : "   –");
+            var count  = counts.GetValueOrDefault(id);
+            var result = count > 0 ? $"{count,4} new mail(s)" : "   -";
+            Log.Information("     {Line}", $"{info.Name,-45}{result}");
         }
 
         return totalNew;
@@ -598,7 +591,7 @@ public class EasArchiver : IDisposable
 
         // ── BackOff monitoring (always logged) ───────────────────────────────
         if (resp.Headers.TryGetValues("X-MS-BackOffDuration", out var backOffValues))
-            Log.Warning("⚠ X-MS-BackOffDuration: {Value} (cmd={Cmd})", string.Join(", ", backOffValues), cmd);
+            Log.Information("⚠ X-MS-BackOffDuration: {Value} (cmd={Cmd})", string.Join(", ", backOffValues), cmd);
 
         // ── Verbosity: Response ───────────────────────────────────────────────
         if (_v >= 1) Log.Debug("← {StatusCode} {Reason}", (int)resp.StatusCode, resp.ReasonPhrase);
