@@ -10,15 +10,11 @@ Incremental – only fetches new emails on each run.
 
 ## Configuration
 
-Settings are loaded in this order (later overrides earlier):
+Settings are loaded from this file:
 
-1. `appsettings.json` – defaults (in the app directory)
-2. `appsettings.local.json` – local overrides (in the app directory, git-ignored)
-3. `config.json` – user settings (`%LOCALAPPDATA%\EasArchiver\` on Windows, `~/.eas-archiver/` on Linux/macOS)
-4. Environment variables
-5. Command line arguments
+`config.json` – user settings (`%LOCALAPPDATA%\EasArchiver\` on Windows, `~/.eas-archiver/` on Linux/macOS)
 
-Example `appsettings.json`:
+Example `config.json`:
 
 ```json
 {
@@ -26,7 +22,6 @@ Example `appsettings.json`:
     "ServerUrl":        "https://eas.example.com/Microsoft-Server-ActiveSync",
     "Domain":           "",
     "Username":         "john.doe",
-    "Password":         "secret",
     "ArchiveDirectory": "mail_archive",
     "WindowSize":       50,
     "FixHeaders":       true,
@@ -135,8 +130,8 @@ This ID identifies the device to the Exchange server. Delete the file to generat
 
 ```
 EasArchiver
-appsettings.json                ← configuration (password here or via env var)
-eas_sync_state.json             ← sync state (created automatically)
+<localappdata>/config.json                ← configuration (password here or via env var)
+<localappdata>/eas_sync_state.json        ← sync state (created automatically)
 mail_archive/
   Inbox/
     2024-03-15_143045_Subject_a1b2c3d4.eml

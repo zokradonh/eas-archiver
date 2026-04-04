@@ -79,7 +79,7 @@ public static class ConfigService
         }
     }
 
-    /// <summary>Wraps EasConfig so the JSON has { "Eas": { ... } } matching appsettings.json format.</summary>
+    /// <summary>Wraps EasConfig so the JSON has { "Eas": { ... } } matching config.json format.</summary>
     private class ConfigWrapper
     {
         public EasConfig Eas { get; set; } = new();

@@ -9,17 +9,17 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-cli:
     strategy:
       matrix:
         include:
           - os: windows-latest
             rid: win-x64
-            artifact: EasArchiver-win-x64
+            artifact: EasArchiver-cli-win-x64
             ext: .exe
           - os: macos-latest
             rid: osx-arm64
-            artifact: EasArchiver-osx-arm64
+            artifact: EasArchiver-cli-osx-arm64
             ext: ""
 
     runs-on: ${{ matrix.os }}
@@ -41,10 +41,10 @@ jobs:
         run: |
           cd publish
           if [ "${{ matrix.ext }}" = ".exe" ]; then
-            7z a -tzip ../${{ matrix.artifact }}.zip EasArchiver.exe appsettings.json
+            7z a -tzip ../${{ matrix.artifact }}.zip EasArchiver.exe
           else
             chmod +x EasArchiver
-            zip ../${{ matrix.artifact }}.zip EasArchiver appsettings.json
+            zip ../${{ matrix.artifact }}.zip EasArchiver
           fi
 
       - name: Upload artifact
@@ -53,12 +53,83 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}.zip
 
+  build-gui:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            artifact: EasArchiver-gui-win-x64
+            mainExe: EasArchiver.Gui.exe
+          - os: macos-latest
+            rid: osx-arm64
+            artifact: EasArchiver-gui-osx-arm64
+            mainExe: EasArchiver.Gui
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Install vpk
+        run: dotnet tool install -g vpk
+
+      - name: Extract version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
+      - name: Publish GUI
+        run: dotnet publish EasArchiver.Gui -c Release -r ${{ matrix.rid }} --self-contained -o publish
+
+      - name: Publish CLI (for installer)
+        run: dotnet publish EasArchiver.Cli -c Release -r ${{ matrix.rid }} -o publish_cli
+
+      - name: Copy CLI into publish dir
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            cp publish_cli/EasArchiver.exe publish/
+          else
+            cp publish_cli/EasArchiver publish/
+            chmod +x publish/EasArchiver
+          fi
+
+      - name: Pack with Velopack (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: vpk pack -u EasArchiver.Gui -v ${{ env.VERSION }} -p publish -e ${{ matrix.mainExe }} --icon EasArchiver.Gui/icon.ico -o releases
+
+      - name: Pack with Velopack (macOS)
+        if: runner.os == 'macOS'
+        run: vpk pack -u EasArchiver.Gui -v ${{ env.VERSION }} -p publish -e ${{ matrix.mainExe }} -o releases
+
+      - name: Upload Velopack artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: releases/
+
   release:
-    needs: build
+    needs: [build-cli, build-gui]
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Install vpk
+        run: dotnet tool install -g vpk
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -72,4 +143,21 @@ jobs:
           gh release create "${{ github.ref_name }}" \
             --title "${{ github.ref_name }}" \
             --generate-notes \
-            artifacts/**/*.zip
+            artifacts/EasArchiver-cli-win-x64/*.zip \
+            artifacts/EasArchiver-cli-osx-arm64/*.zip
+
+      - name: Upload Velopack GUI release (Windows)
+        run: |
+          vpk upload github \
+            --repoUrl https://github.com/zokradonh/EasArchiver \
+            --token ${{ github.token }} \
+            --tag ${{ github.ref_name }} \
+            --outputDir artifacts/EasArchiver-gui-win-x64
+
+      - name: Upload Velopack GUI release (macOS)
+        run: |
+          vpk upload github \
+            --repoUrl https://github.com/zokradonh/EasArchiver \
+            --token ${{ github.token }} \
+            --tag ${{ github.ref_name }} \
+            --outputDir artifacts/EasArchiver-gui-osx-arm64

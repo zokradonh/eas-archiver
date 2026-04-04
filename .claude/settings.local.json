@@ -2,11 +2,6 @@
   "permissions": {
     "allow": [
       "Bash(dotnet build:*)"
-    ],
-    "deny": [
-      "Read(./appsettings.local.json)",
-      "Edit(./appsettings.local.json)",
-      "Write(./appsettings.local.json)"
     ]
   }
 }

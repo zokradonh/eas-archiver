@@ -98,6 +98,14 @@
                         <Border Width="1" Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                                 Margin="4,2" />
                         <Button Content="Reset Sync State" Command="{Binding ResetSyncStateCommand}" />
+                        <Border Width="1" Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                                Margin="4,2" />
+                        <Button Content="Check for Updates" Command="{Binding CheckForUpdatesCommand}"
+                                IsVisible="{Binding !UpdateAvailable}" />
+                        <Button Content="{Binding UpdateVersion, StringFormat='Install v{0} and Restart'}"
+                                Command="{Binding ApplyUpdateCommand}"
+                                Classes="accent"
+                                IsVisible="{Binding UpdateAvailable}" />
                     </StackPanel>
                 </StackPanel>
             </Border>

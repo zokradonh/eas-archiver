@@ -22,7 +22,7 @@ public class SyncProgress
 }
 
 /// <summary>
-/// Loaded from appsettings.json (section "Eas").
+/// Loaded from config.json (section "Eas").
 /// Missing values are prompted interactively at startup.
 /// </summary>
 public class EasConfig

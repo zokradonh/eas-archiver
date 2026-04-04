@@ -42,6 +42,12 @@ public partial class MainViewModel : ObservableObject
     private int _totalRequestCount;
     private int _lastReportedCount;
 
+    // ── Update state ─────────────────────────────────────────────────────────
+    [ObservableProperty] private bool isCheckingForUpdate;
+    [ObservableProperty] private bool updateAvailable;
+    [ObservableProperty] private string updateVersion = "";
+    private readonly UpdateService _updateService = new();
+
     public ObservableCollection<string> LogLines { get; } = [];
 
     /// <summary>
@@ -195,6 +201,55 @@ public partial class MainViewModel : ObservableObject
         StatusText = "Sync state reset — next sync will be a full sync";
     }
 
+    [RelayCommand(CanExecute = nameof(CanCheckForUpdates))]
+    private async Task CheckForUpdates()
+    {
+        IsCheckingForUpdate = true;
+        UpdateAvailable = false;
+        StatusText = "Checking for updates…";
+        try
+        {
+            var hasUpdate = await _updateService.CheckForUpdatesAsync();
+            if (!hasUpdate)
+            {
+                StatusText = "You are running the latest version";
+            }
+            else
+            {
+                UpdateVersion = _updateService.PendingVersion ?? "";
+                UpdateAvailable = true;
+                StatusText = $"Update available: v{UpdateVersion}";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Update check failed: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingForUpdate = false;
+        }
+    }
+
+    private bool CanCheckForUpdates() => !IsCheckingForUpdate;
+
+    [RelayCommand(CanExecute = nameof(CanApplyUpdate))]
+    private async Task ApplyUpdate()
+    {
+        StatusText = "Downloading update…";
+        try
+        {
+            await _updateService.DownloadAndApplyAsync(p =>
+                StatusText = $"Downloading update… {p}%");
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Update failed: {ex.Message}";
+        }
+    }
+
+    private bool CanApplyUpdate() => UpdateAvailable && !IsCheckingForUpdate;
+
     [RelayCommand]
     private void SelectAllFolders()
     {
@@ -293,6 +348,17 @@ public partial class MainViewModel : ObservableObject
     partial void OnIsListingFoldersChanged(bool value)
     {
         ListFoldersCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsCheckingForUpdateChanged(bool value)
+    {
+        CheckForUpdatesCommand.NotifyCanExecuteChanged();
+        ApplyUpdateCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnUpdateAvailableChanged(bool value)
+    {
+        ApplyUpdateCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnSyncAllChanged(bool value)

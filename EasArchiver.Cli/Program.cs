@@ -163,7 +163,7 @@ class Program
         catch (EasAuthException)
         {
             Log.Error("\nAuthentication failed (HTTP 401).");
-            Log.Error("   Please check username/password in appsettings.json.");
+            Log.Error("   Please check username/password.");
             return 1;
         }
         catch (Exception ex)
