@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Serilog;
+using Velopack;
 
 namespace EasArchiver;
 
@@ -14,7 +15,11 @@ class Program
 
     static async Task<int> Main(string[] args)
     {
+        VelopackApp.Build().Run();
         Console.OutputEncoding = Encoding.UTF8;
+
+        if (args.Contains("--auto-update"))
+            return await AutoUpdateAsync();
 
         if (args.Contains("--version"))
         {
@@ -178,6 +183,23 @@ class Program
     }
 
     // ── Helper methods ───────────────────────────────────────────────────────
+
+    private static async Task<int> AutoUpdateAsync()
+    {
+        var svc = new UpdateService();
+        Console.WriteLine("Checking for updates…");
+        var hasUpdate = await svc.CheckForUpdatesAsync();
+        if (!hasUpdate)
+        {
+            Console.WriteLine("Already up to date.");
+            return 0;
+        }
+        Console.WriteLine($"Update available: v{svc.PendingVersion}");
+        Console.WriteLine("Downloading update…");
+        await svc.DownloadAndApplyAsync(p => Console.Write($"\r  {p}%   "));
+        Console.WriteLine();
+        return 0;
+    }
 
     private static EasConfig PromptMissingFields(EasConfig cfg)
     {
