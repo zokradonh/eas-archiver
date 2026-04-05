@@ -17,14 +17,23 @@
         <Border DockPanel.Dock="Bottom" Margin="0,8,0,0" Padding="8,4"
                 Background="{DynamicResource SystemControlBackgroundListLowBrush}"
                 CornerRadius="4">
-            <Grid ColumnDefinitions="*,Auto,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                 <TextBlock Grid.Column="0" Text="{Binding StatusText}"
                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1" Text="{Binding ProgressText}"
                            FontStyle="Italic" Opacity="0.8" Margin="12,0"
                            VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Text="{Binding RequestCountText}"
-                           Opacity="0.6" VerticalAlignment="Center" />
+                           Opacity="0.6" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <!-- Update lives here — out of the way but always visible -->
+                <Button Grid.Column="3" Content="↑ Updates" Padding="8,2" FontSize="12"
+                        Command="{Binding CheckForUpdatesCommand}"
+                        IsVisible="{Binding !UpdateAvailable}" />
+                <Button Grid.Column="3"
+                        Content="{Binding UpdateVersion, StringFormat='↑ Install v{0}'}"
+                        Command="{Binding ApplyUpdateCommand}"
+                        Classes="accent" Padding="8,2" FontSize="12"
+                        IsVisible="{Binding UpdateAvailable}" />
             </Grid>
         </Border>
 
@@ -85,28 +94,27 @@
                                   ToolTip.Tip="Writes raw WBXML blobs for each Sync command to the app data directory for debugging" />
                     </Grid>
 
-                    <!-- Buttons -->
-                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-                        <Button Content="Save Config" Command="{Binding SaveConfigCommand}" />
-                        <Button Content="Reload Config" Command="{Binding LoadConfigCommand}" />
-                        <Border Width="1" Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-                                Margin="4,2" />
-                        <Button Content="List Folders" Command="{Binding ListFoldersCommand}" />
-                        <Button Content="Start Sync" Command="{Binding StartSyncCommand}"
-                                Classes="accent" />
-                        <Button Content="Stop" Command="{Binding StopSyncCommand}" />
-                        <Border Width="1" Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-                                Margin="4,2" />
-                        <Button Content="Reset Sync State" Command="{Binding ResetSyncStateCommand}" />
-                        <Border Width="1" Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-                                Margin="4,2" />
-                        <Button Content="Check for Updates" Command="{Binding CheckForUpdatesCommand}"
-                                IsVisible="{Binding !UpdateAvailable}" />
-                        <Button Content="{Binding UpdateVersion, StringFormat='Install v{0} and Restart'}"
-                                Command="{Binding ApplyUpdateCommand}"
-                                Classes="accent"
-                                IsVisible="{Binding UpdateAvailable}" />
-                    </StackPanel>
+                    <!-- Buttons — two logical groups -->
+                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,4,0,0">
+                        <!-- Config actions -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+                            <Button Content="Save" Command="{Binding SaveConfigCommand}"
+                                    ToolTip.Tip="Save Config" />
+                            <Button Content="Reload" Command="{Binding LoadConfigCommand}"
+                                    ToolTip.Tip="Reload Config" />
+                        </StackPanel>
+                        <!-- Sync actions -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                            <Button Content="List Folders" Command="{Binding ListFoldersCommand}" />
+                            <Button Content="Start Sync" Command="{Binding StartSyncCommand}"
+                                    Classes="accent" />
+                            <Button Content="Stop" Command="{Binding StopSyncCommand}" />
+                            <Border Width="1" Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                                    Margin="2,3" />
+                            <Button Content="Reset State" Command="{Binding ResetSyncStateCommand}"
+                                    ToolTip.Tip="Reset Sync State" />
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
             </Border>
 
