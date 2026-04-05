@@ -5,7 +5,7 @@ namespace EasArchiver;
 
 public class UpdateService
 {
-    private const string GitHubRepoUrl = "https://github.com/zokradonh/EasArchiver";
+    private const string GitHubRepoUrl = "https://github.com/zokradonh/eas-archiver";
     private UpdateInfo? _pendingUpdate;
 
     public bool UpdateAvailable => _pendingUpdate is not null;

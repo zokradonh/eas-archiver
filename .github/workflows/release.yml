@@ -149,7 +149,7 @@ jobs:
       - name: Upload Velopack GUI release (Windows)
         run: |
           vpk upload github \
-            --repoUrl https://github.com/zokradonh/EasArchiver \
+            --repoUrl https://github.com/zokradonh/eas-archiver \
             --token ${{ github.token }} \
             --tag ${{ github.ref_name }} \
             --outputDir artifacts/EasArchiver-gui-win-x64
@@ -157,7 +157,7 @@ jobs:
       - name: Upload Velopack GUI release (macOS)
         run: |
           vpk upload github \
-            --repoUrl https://github.com/zokradonh/EasArchiver \
+            --repoUrl https://github.com/zokradonh/eas-archiver \
             --token ${{ github.token }} \
             --tag ${{ github.ref_name }} \
             --outputDir artifacts/EasArchiver-gui-osx-arm64
