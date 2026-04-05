@@ -9,11 +9,6 @@
     <RootNamespace>EasArchiver</RootNamespace>
     <LangVersion>14</LangVersion>
 
-    <!-- Single-file self-contained publish (pass -r <rid> to dotnet publish) -->
-    <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>true</SelfContained>
-    <PublishReadyToRun>true</PublishReadyToRun>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
