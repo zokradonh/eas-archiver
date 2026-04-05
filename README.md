@@ -3,6 +3,10 @@
 Downloads emails from an Exchange ActiveSync (EAS) server as local `.eml` files.
 Incremental – only fetches new emails on each run.
 
+Two frontends are available:
+- **CLI** (`EasArchiver.exe`) – headless, ideal for scheduled tasks and scripting
+- **GUI** (`EasArchiver.Gui.exe`) – Avalonia desktop app with a visual config editor, folder browser, live log output, and built-in auto-update support
+
 ## Prerequisites
 
 - Windows 10 / 11 (should also run on Linux / macOS)
@@ -13,6 +17,8 @@ Incremental – only fetches new emails on each run.
 Settings are loaded from this file:
 
 `config.json` – user settings (`%LOCALAPPDATA%\EasArchiver\` on Windows, `~/.eas-archiver/` on Linux/macOS)
+
+The GUI provides a built-in editor for all settings — no manual editing of `config.json` required.
 
 Example `config.json`:
 
@@ -38,18 +44,6 @@ Example `config.json`:
 - **Include** – only sync folders matching these names (empty = all). Also matches subfolders.
 - **Exclude** – skip folders matching these names. Applied after Include. Also matches subfolders.
 - Missing fields are prompted interactively at startup
-
-Override via environment variables:
-```
-EAS__ServerUrl=https://...
-EAS__Username=john.doe
-EAS__Password=secret
-```
-
-Or via command line:
-```
-EasArchiver --Eas:Username=john.doe --Eas:Password=secret
-```
 
 ### Folder filtering
 
@@ -91,13 +85,20 @@ dotnet build
 ```
 
 As a **single-file executable** (recommended – no .NET installation required on target machine):
-```
-dotnet publish -c Release -r win-x64      # Windows
-dotnet publish -c Release -r osx-arm64    # macOS (Apple Silicon)
-dotnet publish -c Release -r linux-x64    # Linux
-```
 
-Output: `bin/Release/net10.0/<rid>/publish/EasArchiver`
+CLI:
+```
+dotnet publish EasArchiver.Cli -c Release -r win-x64      # Windows
+dotnet publish EasArchiver.Cli -c Release -r osx-arm64    # macOS (Apple Silicon)
+dotnet publish EasArchiver.Cli -c Release -r linux-x64    # Linux
+```
+Output: `EasArchiver.Cli/bin/Release/net10.0/<rid>/publish/EasArchiver.exe`
+
+GUI (Windows only):
+```
+dotnet publish EasArchiver.Gui -c Release -r win-x64
+```
+Output: `EasArchiver.Gui/bin/Release/net10.0/win-x64/publish/EasArchiver.Gui.exe`
 
 ## Usage
 
@@ -110,6 +111,12 @@ EasArchiver --debug-blobs       # save sync responses as hex files
 EasArchiver --test              # run built-in WBXML codec tests
 EasArchiver --decode file.hex   # decode a WBXML hex dump to XML (writes file.xml)
 ```
+
+## Updates
+
+The GUI checks for updates automatically on startup using [Velopack](https://velopack.io). When a new version is available, a notification appears and the update can be applied with one click.
+
+The CLI supports the `--auto-update` flag to check and apply updates non-interactively.
 
 ## Device ID
 
@@ -130,8 +137,6 @@ This ID identifies the device to the Exchange server. Delete the file to generat
 
 ```
 EasArchiver
-<localappdata>/config.json                ← configuration (password here or via env var)
-<localappdata>/eas_sync_state.json        ← sync state (created automatically)
 mail_archive/
   Inbox/
     2024-03-15_143045_Subject_a1b2c3d4.eml
@@ -139,8 +144,14 @@ mail_archive/
       2024-06-01_091500_Update_b2c3d4e5.eml
   Sent Items/
     ...
+<localappdata>/config.json                ← configuration (password here or via env var)
+<localappdata>/eas_sync_state.json        ← sync state (created automatically)
 ```
 
 ## Format
 
 `.eml` (RFC 2822) – opens with a double-click in Outlook or Thunderbird.
+
+## AI
+
+Thanks to AI for saving me hundreds of hours.
