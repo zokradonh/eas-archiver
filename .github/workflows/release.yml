@@ -165,6 +165,7 @@ jobs:
             --repoUrl https://github.com/zokradonh/eas-archiver \
             --token ${{ github.token }} \
             --tag ${{ github.ref_name }} \
+            --channel win \
             --outputDir artifacts/EasArchiver-gui-win-x64
 
       - name: Upload Velopack GUI release (macOS)
@@ -173,4 +174,5 @@ jobs:
             --repoUrl https://github.com/zokradonh/eas-archiver \
             --token ${{ github.token }} \
             --tag ${{ github.ref_name }} \
+            --channel osx \
             --outputDir artifacts/EasArchiver-gui-osx-arm64
