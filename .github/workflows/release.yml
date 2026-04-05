@@ -149,17 +149,7 @@ jobs:
         with:
           path: artifacts
 
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "${{ github.ref_name }}" \
-            --title "${{ github.ref_name }}" \
-            --generate-notes \
-            artifacts/EasArchiver-cli-win-x64/*.zip \
-            artifacts/EasArchiver-cli-osx-arm64/*.zip
-
-      - name: Upload Velopack GUI release (Windows)
+      - name: Upload Velopack GUI release (Windows) - creates GitHub release
         run: |
           vpk upload github \
             --repoUrl https://github.com/zokradonh/eas-archiver \
@@ -176,3 +166,16 @@ jobs:
             --tag ${{ github.ref_name }} \
             --channel osx \
             --outputDir artifacts/EasArchiver-gui-osx-arm64
+
+      - name: Upload CLI artifacts to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            artifacts/EasArchiver-cli-win-x64/*.zip \
+            artifacts/EasArchiver-cli-osx-arm64/*.zip
+
+      - name: Add auto-generated release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${{ github.ref_name }}" --generate-notes
