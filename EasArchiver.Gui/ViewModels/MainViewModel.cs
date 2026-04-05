@@ -17,6 +17,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string username = "";
     [ObservableProperty] private string archiveDirectory = "mail_archive";
     [ObservableProperty] private int windowSize = 50;
+    [ObservableProperty] public partial int ConfirmEvery { get; set; }
     [ObservableProperty] private bool fixHeaders = true;
     [ObservableProperty] public partial bool DebugBlobs { get; set; }
 
@@ -65,6 +66,12 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public Func<string?, Task<string?>>? BrowseFolder { get; set; }
 
+    /// <summary>
+    /// Interaction callback shown every N requests to confirm continuation.
+    /// Set by the View. Return true to continue, false to abort.
+    /// </summary>
+    public Func<int, Task<bool>>? RequestConfirm { get; set; }
+
     [RelayCommand]
     private async Task BrowseArchiveDir()
     {
@@ -109,6 +116,7 @@ public partial class MainViewModel : ObservableObject
         Username = cfg.Username;
         ArchiveDirectory = cfg.ArchiveDirectory;
         WindowSize = cfg.WindowSize;
+        ConfirmEvery = cfg.ConfirmEvery;
         FixHeaders = cfg.FixHeaders;
         DebugBlobs = cfg.DebugBlobs;
         VerbosityIndex = cfg.Verbosity > 0 ? cfg.Verbosity - 1 : 0;
@@ -309,6 +317,8 @@ public partial class MainViewModel : ObservableObject
         {
             var state = ConfigService.LoadState();
             using var archiver = new EasArchiver(cfg);
+            if (RequestConfirm is not null)
+                archiver.ConfirmContinue = RequestConfirm;
             StatusText = await operation(archiver, state, progress, _cts?.Token ?? CancellationToken.None);
             ConfigService.SaveState(state);
 
@@ -406,6 +416,7 @@ public partial class MainViewModel : ObservableObject
             Password = "",
             ArchiveDirectory = ArchiveDirectory.Trim(),
             WindowSize = WindowSize,
+            ConfirmEvery = ConfirmEvery,
             FixHeaders = FixHeaders,
             DebugBlobs = DebugBlobs,
             Verbosity = VerbosityIndex + 1,

@@ -47,6 +47,10 @@ public class EasConfig
     /// <summary>Authentication mode: Basic (default) or Ntlm.</summary>
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public AuthMode Auth          { get; set; } = AuthMode.Ntlm;
+    /// <summary>Hard request cap per session. Throws if exceeded (prevents runaway loops). 0 = unlimited.</summary>
+    public int      MaxRequests   { get; set; } = 50;
+    /// <summary>Ask for confirmation every N requests. 0 = never ask.</summary>
+    public int      ConfirmEvery  { get; set; } = 5;
 }
 
 /// <summary>Folder metadata from FolderSync (persisted for hierarchy resolution).</summary>

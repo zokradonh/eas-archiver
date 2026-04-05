@@ -566,13 +566,20 @@ public class EasArchiver : IDisposable
             $"?Cmd={cmd}&User={Uri.EscapeDataString(_cfg.Username)}" +
             $"&DeviceId={DeviceId}&DeviceType={DeviceType}";
 
+        // ── Hard request cap (guard against runaway loops) ───────────────────
+        if (_cfg.MaxRequests > 0 && _requestCount >= _cfg.MaxRequests)
+            throw new InvalidOperationException(
+                $"Aborted: request cap of {_cfg.MaxRequests} reached. " +
+                "Increase MaxRequests in config if needed.");
+
         // ── Rate limit: 200 ms between requests ──────────────────────────────
         if (_requestCount > 0)
             await Task.Delay(200, _ct);
         _ct.ThrowIfCancellationRequested();
 
-        // ── Confirm every 5 requests ─────────────────────────────────────────
-        if (_requestCount > 0 && _requestCount % 5 == 0 && ConfirmContinue is not null)
+        // ── Confirm every N requests ─────────────────────────────────────────
+        if (_cfg.ConfirmEvery > 0 && _requestCount > 0 && _requestCount % _cfg.ConfirmEvery == 0
+            && ConfirmContinue is not null)
         {
             if (!await ConfirmContinue(_requestCount))
                 throw new OperationCanceledException("Aborted by user after rate-limit prompt.");

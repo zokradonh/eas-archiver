@@ -1,0 +1,18 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="EasArchiver.Gui.ConfirmContinueDialog"
+        Title="Continue Sync?"
+        Icon="avares://EasArchiver.Gui/icon.ico"
+        Width="380" Height="140"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="Height">
+
+    <StackPanel Margin="20" Spacing="12">
+        <TextBlock x:Name="MessageBlock" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Stop" Click="OnStop" />
+            <Button Content="Continue" Click="OnContinue" Classes="accent" />
+        </StackPanel>
+    </StackPanel>
+</Window>
