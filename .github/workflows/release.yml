@@ -134,6 +134,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
@@ -148,6 +150,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+
+      - name: Generate release notes
+        shell: bash
+        run: |
+          PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${{ github.ref_name }}$" | head -1)
+          if [ -n "$PREV_TAG" ]; then
+            git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" --no-merges > release_notes.md
+          else
+            git log --pretty=format:"- %s" --no-merges > release_notes.md
+          fi
+          echo "" >> release_notes.md
+          echo "**Full Changelog:** https://github.com/zokradonh/eas-archiver/compare/${PREV_TAG}...${{ github.ref_name }}" >> release_notes.md
 
       - name: Upload Velopack GUI release (Windows) - creates GitHub release
         run: |
@@ -167,15 +181,13 @@ jobs:
             --channel osx \
             --outputDir artifacts/EasArchiver-gui-osx-arm64
 
-      - name: Upload CLI artifacts to GitHub Release
+      - name: Upload CLI artifacts and set release notes
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ github.ref_name }}" \
             artifacts/EasArchiver-cli-win-x64/*.zip \
             artifacts/EasArchiver-cli-osx-arm64/*.zip
-
-      - name: Add auto-generated release notes
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release edit "${{ github.ref_name }}" --generate-notes
+          gh release edit "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --notes-file release_notes.md
