@@ -16,6 +16,11 @@ public static class CredentialService
     private static readonly string CredentialPath =
         Path.Combine(EasArchiver.AppDataDir, "credential.dat");
 
+    /// <summary>
+    /// Some entropy for security by obscurity
+    /// </summary>
+    private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("EasArchiver.v1");
+
     public static bool IsSupported => OperatingSystem.IsWindows();
 
     public static void Save(string password)
@@ -23,7 +28,7 @@ public static class CredentialService
         if (!IsSupported) return;
         Directory.CreateDirectory(EasArchiver.AppDataDir);
         var plain = Encoding.UTF8.GetBytes(password);
-        var encrypted = ProtectedData.Protect(plain, null, DataProtectionScope.CurrentUser);
+        var encrypted = ProtectedData.Protect(plain, Entropy, DataProtectionScope.CurrentUser);
         File.WriteAllBytes(CredentialPath, encrypted);
     }
 
@@ -34,7 +39,7 @@ public static class CredentialService
         try
         {
             var encrypted = File.ReadAllBytes(CredentialPath);
-            var plain = ProtectedData.Unprotect(encrypted, null, DataProtectionScope.CurrentUser);
+            var plain = ProtectedData.Unprotect(encrypted, Entropy, DataProtectionScope.CurrentUser);
             return Encoding.UTF8.GetString(plain);
         }
         catch
@@ -45,6 +50,7 @@ public static class CredentialService
 
     public static void Delete()
     {
+        if (!IsSupported) return;
         if (File.Exists(CredentialPath))
             File.Delete(CredentialPath);
     }
