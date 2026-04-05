@@ -42,6 +42,9 @@ public partial class MainViewModel : ObservableObject
     private int _totalRequestCount;
     private int _lastReportedCount;
 
+    // ── App version ─────────────────────────────────────────────────────────
+    public static string AppVersion => EasArchiver.AppVersion;
+
     // ── Update state ─────────────────────────────────────────────────────────
     [ObservableProperty] private bool isCheckingForUpdate;
     [ObservableProperty] private bool updateAvailable;

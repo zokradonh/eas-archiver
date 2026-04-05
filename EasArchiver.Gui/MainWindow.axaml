@@ -3,7 +3,7 @@
         xmlns:vm="using:EasArchiver.Gui.ViewModels"
         x:Class="EasArchiver.Gui.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="EAS Email Archiver"
+        Title="{Binding AppVersion, StringFormat='EAS Email Archiver v{0}'}"
         Icon="avares://EasArchiver.Gui/icon.ico"
         Width="750" Height="700" MinWidth="550" MinHeight="500">
 
