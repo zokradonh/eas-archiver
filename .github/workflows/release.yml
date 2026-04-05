@@ -104,10 +104,19 @@ jobs:
             chmod +x publish/EasArchiver
           fi
 
+      - name: Download previous releases (for delta updates)
+        shell: bash
+        continue-on-error: true
+        run: |
+          vpk download github \
+            --repoUrl https://github.com/zokradonh/eas-archiver \
+            --token ${{ github.token }} \
+            --outputDir releases
+
       - name: Pack with Velopack (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: vpk pack -u EasArchiver.Gui -v ${{ env.VERSION }} -p publish -e ${{ matrix.mainExe }} --icon EasArchiver.Gui/icon.ico -o releases
+        run: vpk pack -u EasArchiver.Gui -v ${{ env.VERSION }} -p publish -e ${{ matrix.mainExe }} --icon EasArchiver.Gui/icon.ico -o releases --framework net10-x64
 
       - name: Pack with Velopack (macOS)
         if: runner.os == 'macOS'
