@@ -1,0 +1,22 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Release: Tag & Push",
+      "type": "shell",
+      "command": "git tag v${input:version} && git push origin v${input:version}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "version",
+      "type": "promptString",
+      "description": "Version (z.B. 1.0.0)"
+    }
+  ]
+}
