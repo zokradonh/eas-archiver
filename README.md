@@ -118,6 +118,22 @@ The GUI checks for updates automatically on startup using [Velopack](https://vel
 
 The CLI supports the `--auto-update` flag to check and apply updates non-interactively.
 
+## Credentials
+
+On Windows, the password can be saved to disk via the GUI or by entering it interactively on first run. It is stored in:
+
+`%LOCALAPPDATA%\EasArchiver\credential.dat`
+
+The file is encrypted with the [Windows Data Protection API (DPAPI)](https://learn.microsoft.com/en-us/dotnet/standard/security/how-to-use-data-protection) in `CurrentUser` scope. This means:
+
+- The ciphertext is tied to your Windows user account and the local machine. No other user account — not even an administrator — can decrypt it without knowing your Windows login password.
+- The file is useless on another machine or after a user profile migration; you will be prompted for the password again.
+- DPAPI does **not** protect against malware running as your own user, or against memory-scraping attacks while the application is running.
+
+On Linux and macOS the file is never created. Store the password in plaintext in `config.json` instead.
+
+To clear the saved password, delete `credential.dat` or use the GUI settings screen.
+
 ## Device ID
 
 A random device ID is generated on first run and persisted in the app data directory
@@ -145,6 +161,7 @@ mail_archive/
   Sent Items/
     ...
 <localappdata>/config.json                ← configuration (password here or via env var)
+<localappdata>/credential.dat             ← password encrypted with DPAPI (Windows only)
 <localappdata>/eas_sync_state.json        ← sync state (created automatically)
 ```
 
