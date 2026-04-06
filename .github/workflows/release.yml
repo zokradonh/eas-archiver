@@ -120,7 +120,7 @@ jobs:
 
       - name: Pack with Velopack (macOS)
         if: runner.os == 'macOS'
-        run: vpk pack -u EasArchiver.Gui -v ${{ env.VERSION }} -p publish -e ${{ matrix.mainExe }} -o releases --framework net10-arm64
+        run: vpk pack -u EasArchiver.Gui -v ${{ env.VERSION }} -p publish -e ${{ matrix.mainExe }} -o releases
 
       - name: Upload Velopack artifacts
         uses: actions/upload-artifact@v4
