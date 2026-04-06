@@ -89,7 +89,7 @@ jobs:
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
 
       - name: Publish GUI
-        run: dotnet publish EasArchiver.Gui -c Release -r ${{ matrix.rid }} --self-contained -o publish -p:Version=${{ env.VERSION }}
+        run: dotnet publish EasArchiver.Gui -c Release -r ${{ matrix.rid }} --no-self-contained -o publish -p:Version=${{ env.VERSION }}
 
       - name: Publish CLI (for installer)
         run: dotnet publish EasArchiver.Cli -c Release -r ${{ matrix.rid }} -o publish_cli -p:Version=${{ env.VERSION }}
@@ -120,7 +120,7 @@ jobs:
 
       - name: Pack with Velopack (macOS)
         if: runner.os == 'macOS'
-        run: vpk pack -u EasArchiver.Gui -v ${{ env.VERSION }} -p publish -e ${{ matrix.mainExe }} -o releases
+        run: vpk pack -u EasArchiver.Gui -v ${{ env.VERSION }} -p publish -e ${{ matrix.mainExe }} -o releases --framework net10-arm64
 
       - name: Upload Velopack artifacts
         uses: actions/upload-artifact@v4
