@@ -170,6 +170,7 @@ jobs:
             --token ${{ github.token }} \
             --tag ${{ github.ref_name }} \
             --channel win \
+            --merge \
             --outputDir artifacts/EasArchiver-gui-win-x64
 
       - name: Upload Velopack GUI release (macOS)
@@ -179,6 +180,7 @@ jobs:
             --token ${{ github.token }} \
             --tag ${{ github.ref_name }} \
             --channel osx \
+            --merge \
             --outputDir artifacts/EasArchiver-gui-osx-arm64
 
       - name: Upload CLI artifacts and set release notes
