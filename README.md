@@ -155,9 +155,9 @@ This ID identifies the device to the Exchange server. Delete the file to generat
 EasArchiver
 mail_archive/
   Inbox/
-    2024-03-15_143045_Subject_a1b2c3d4.eml
+    2024-03-15_143045_Subject.eml
     Projects/                   ← subfolders follow server hierarchy
-      2024-06-01_091500_Update_b2c3d4e5.eml
+      2024-06-01_091500_Update.eml
   Sent Items/
     ...
 <localappdata>/config.json                ← configuration (password here or via env var)
