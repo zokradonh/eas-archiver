@@ -548,7 +548,10 @@ public class EasArchiver : IDisposable
         if (content is null) return false;
 
         if (_cfg.FixHeaders)
+        {
             content = FixMimeHeaders(content);
+            content = FixMimePartHeaders(content);
+        }
 
         var path = BuildEmlPath(folderPath, serverId, subject, dateStr);
         if (File.Exists(path)) return false;
@@ -738,6 +741,57 @@ public class EasArchiver : IDisposable
         }
 
         return string.Join("\r\n", headers) + rest;
+    }
+
+    /// <summary>
+    /// Fix MIME part headers (Content-Type name, Content-Disposition filename,
+    /// Content-Description) that contain raw UTF-8 instead of RFC 2231/2047 encoding.
+    /// Also normalizes NFD sequences (e.g. u+combining diaeresis) to NFC (ü).
+    /// </summary>
+    private static string FixMimePartHeaders(string mime)
+    {
+        // Fix name="..." and filename="..." with non-ASCII values → RFC 2231
+        mime = Regex.Replace(mime, @"((?:file)?name)=""([^""]+)""", m =>
+        {
+            var paramName = m.Groups[1].Value;
+            var value = m.Groups[2].Value;
+            if (!HasNonAscii(value)) return m.Value;
+            var normalized = value.Normalize(NormalizationForm.FormC);
+            return $"{paramName}*={Rfc2231Encode(normalized)}";
+        }, RegexOptions.IgnoreCase);
+
+        // Fix Content-Description with non-ASCII values → RFC 2047
+        // Handles folded headers (continuation lines starting with space/tab)
+        mime = Regex.Replace(mime, @"(Content-Description:[ \t]*)(.*(?:\r\n[ \t]+.*)*)", m =>
+        {
+            var prefix = m.Groups[1].Value;
+            var value = m.Groups[2].Value;
+            // Unfold continuation lines
+            var unfolded = Regex.Replace(value, @"\r\n[ \t]+", " ");
+            if (!HasNonAscii(unfolded) || unfolded.Contains("=?")) return m.Value;
+            var normalized = unfolded.Normalize(NormalizationForm.FormC);
+            return $"{prefix}{Rfc2047QEncode(normalized)}";
+        }, RegexOptions.IgnoreCase);
+
+        return mime;
+    }
+
+    /// <summary>RFC 2231 encode a parameter value as UTF-8''percent-encoded.</summary>
+    private static string Rfc2231Encode(string value)
+    {
+        var bytes = Encoding.UTF8.GetBytes(value);
+        var sb = new StringBuilder("UTF-8''");
+        foreach (var b in bytes)
+        {
+            if (b is >= (byte)'A' and <= (byte)'Z'
+                   or >= (byte)'a' and <= (byte)'z'
+                   or >= (byte)'0' and <= (byte)'9'
+                   or (byte)'.' or (byte)'-' or (byte)'_')
+                sb.Append((char)b);
+            else
+                sb.Append($"%{b:X2}");
+        }
+        return sb.ToString();
     }
 
     private static bool HasNonAscii(string s) => s.Any(c => c > 127);
