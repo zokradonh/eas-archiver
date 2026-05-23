@@ -1,0 +1,20 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="EasArchiver.Gui.ConfirmResetDialog"
+        Title="Reset Sync State?"
+        Icon="avares://EasArchiver.Gui/icon.ico"
+        Width="380" Height="140"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="Height">
+
+    <StackPanel Margin="20" Spacing="12">
+        <TextBlock TextWrapping="Wrap">
+            Sync state zurücksetzen? Die nächste Synchronisation wird eine vollständige Synchronisation aller Ordner sein.
+        </TextBlock>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Abbrechen" Click="OnCancel" Classes="accent" />
+            <Button Content="Zurücksetzen" Click="OnConfirm" />
+        </StackPanel>
+    </StackPanel>
+</Window>

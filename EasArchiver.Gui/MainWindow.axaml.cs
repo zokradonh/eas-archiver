@@ -26,6 +26,13 @@ public partial class MainWindow : Window
                 return dialog.Result;
             };
 
+            vm.ConfirmResetState = async () =>
+            {
+                var dialog = new ConfirmResetDialog();
+                await dialog.ShowDialog(this);
+                return dialog.Result;
+            };
+
             vm.BrowseFolder = async currentDir =>
             {
                 IStorageFolder? startLocation = null;

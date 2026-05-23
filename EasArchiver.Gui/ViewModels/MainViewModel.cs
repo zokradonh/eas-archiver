@@ -72,6 +72,12 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public Func<int, Task<bool>>? RequestConfirm { get; set; }
 
+    /// <summary>
+    /// Confirmation dialog before resetting sync state. Set by the View.
+    /// Return true to proceed, false to cancel.
+    /// </summary>
+    public Func<Task<bool>>? ConfirmResetState { get; set; }
+
     [RelayCommand]
     private async Task BrowseArchiveDir()
     {
@@ -206,8 +212,10 @@ public partial class MainViewModel : ObservableObject
     private bool CanStopSync() => IsSyncing;
 
     [RelayCommand]
-    private void ResetSyncState()
+    private async Task ResetSyncState()
     {
+        if (ConfirmResetState is not null && !await ConfirmResetState())
+            return;
         ConfigService.SaveState(new SyncState());
         StatusText = "Sync state reset — next sync will be a full sync";
     }
