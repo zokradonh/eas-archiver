@@ -90,48 +90,58 @@
             <Border Grid.Row="0" Padding="20" CornerRadius="8"
                     BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                     BorderThickness="1" Margin="0,0,0,12">
-                <StackPanel Spacing="12" HorizontalAlignment="Center">
+                <StackPanel Spacing="10" HorizontalAlignment="Center">
 
-                    <!-- The big circular state indicator -->
-                    <Grid Width="140" Height="140" HorizontalAlignment="Center">
-                        <!-- Idle ring -->
-                        <Ellipse Width="140" Height="140" StrokeThickness="3"
-                                 Stroke="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-                                 IsVisible="{Binding ShowIdleRing}" />
+                    <!-- Big circular button — the whole disk is clickable -->
+                    <Button Command="{Binding ToggleSyncCommand}"
+                            Width="140" Height="140" Padding="0"
+                            CornerRadius="70"
+                            HorizontalAlignment="Center"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            ToolTip.Tip="{Binding SyncButtonText}">
+                        <Grid>
+                            <!-- Idle ring -->
+                            <Ellipse Width="140" Height="140" StrokeThickness="3"
+                                     Stroke="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                                     IsVisible="{Binding ShowIdleRing}" />
 
-                        <!-- Spinner while syncing -->
-                        <ProgressBar IsIndeterminate="True" Width="140" Height="140"
-                                     Classes="circular"
-                                     IsVisible="{Binding IsSyncing}" />
+                            <!-- Spinner while syncing -->
+                            <ProgressBar IsIndeterminate="True" Width="140" Height="140"
+                                         Classes="circular"
+                                         IsVisible="{Binding IsSyncing}" />
 
-                        <!-- Success checkmark -->
-                        <Ellipse Width="140" Height="140" Fill="#22c55e"
-                                 IsVisible="{Binding LastSyncSuccess}" />
-                        <TextBlock Text="✓" FontSize="72" Foreground="White"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   IsVisible="{Binding LastSyncSuccess}" />
+                            <!-- Success: green disk + checkmark -->
+                            <Ellipse Width="140" Height="140" Fill="#22c55e"
+                                     IsVisible="{Binding LastSyncSuccess}" />
+                            <TextBlock Text="✓" FontSize="72" Foreground="White"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       IsVisible="{Binding LastSyncSuccess}" />
 
-                        <!-- Error X -->
-                        <Ellipse Width="140" Height="140" Fill="#ef4444"
-                                 IsVisible="{Binding LastSyncError}" />
-                        <TextBlock Text="✕" FontSize="64" Foreground="White"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   IsVisible="{Binding LastSyncError}" />
+                            <!-- Error: red disk + X -->
+                            <Ellipse Width="140" Height="140" Fill="#ef4444"
+                                     IsVisible="{Binding LastSyncError}" />
+                            <TextBlock Text="✕" FontSize="64" Foreground="White"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       IsVisible="{Binding LastSyncError}" />
 
-                        <!-- Center play icon when idle -->
-                        <TextBlock Text="▶" FontSize="48" Opacity="0.7"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   Margin="8,0,0,0"
-                                   IsVisible="{Binding ShowIdleRing}" />
-                    </Grid>
+                            <!-- Idle: play icon -->
+                            <TextBlock Text="▶" FontSize="48" Opacity="0.8"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Margin="8,0,0,0"
+                                       IsVisible="{Binding ShowIdleRing}" />
 
-                    <!-- Action button -->
-                    <Button Content="{Binding SyncButtonText}"
-                            Command="{Binding ToggleSyncCommand}"
-                            Classes="accent"
-                            FontSize="16" FontWeight="SemiBold"
-                            Padding="32,10"
-                            HorizontalAlignment="Center" />
+                            <!-- Syncing: stop icon -->
+                            <TextBlock Text="■" FontSize="48" Opacity="0.8"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       IsVisible="{Binding IsSyncing}" />
+                        </Grid>
+                    </Button>
+
+                    <!-- Label below -->
+                    <TextBlock Text="{Binding SyncButtonText}"
+                               FontSize="14" FontWeight="SemiBold" Opacity="0.8"
+                               HorizontalAlignment="Center" />
                 </StackPanel>
             </Border>
 
@@ -181,9 +191,28 @@
                                      Background="Transparent"
                                      BorderThickness="0"
                                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="Padding" Value="8,4" />
+                                    </Style>
+                                    <Style Selector="ListBoxItem:nth-child(2n)">
+                                        <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundListLowBrush}" />
+                                    </Style>
+                                </ListBox.Styles>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="vm:FolderItemViewModel">
-                                        <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Path}" />
+                                        <Grid ColumnDefinitions="Auto,Auto,Auto,*">
+                                            <!-- depth indent spacer -->
+                                            <Border Grid.Column="0" Width="{Binding IndentMargin}" />
+                                            <CheckBox Grid.Column="1" IsChecked="{Binding IsSelected}"
+                                                      VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <TextBlock Grid.Column="2" Text="📁" FontSize="14"
+                                                       VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding ParentPath}" Opacity="0.5" />
+                                                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" Margin="4,0,0,0" />
+                                            </StackPanel>
+                                        </Grid>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
