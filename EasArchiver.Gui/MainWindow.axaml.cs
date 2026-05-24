@@ -1,5 +1,6 @@
 using System.IO;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using EasArchiver.Gui.ViewModels;
 
@@ -52,6 +53,15 @@ public partial class MainWindow : Window
                 });
                 return folders.Count > 0 ? folders[0].Path.LocalPath : null;
             };
+        }
+    }
+
+    private async void OnOpenSettings(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+        {
+            var dialog = new SettingsDialog(vm);
+            await dialog.ShowDialog(this);
         }
     }
 }

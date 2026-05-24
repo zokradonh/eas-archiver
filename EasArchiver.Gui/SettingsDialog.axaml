@@ -1,0 +1,97 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:EasArchiver.Gui.ViewModels"
+        x:Class="EasArchiver.Gui.SettingsDialog"
+        x:DataType="vm:MainViewModel"
+        Title="Settings"
+        Icon="avares://EasArchiver.Gui/icon.ico"
+        Width="560" Height="520"
+        MinWidth="480" MinHeight="420"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="16">
+        <!-- Buttons -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+            <Button Content="Cancel" Click="OnCancel" />
+            <Button Content="OK" Click="OnOk" Classes="accent" IsDefault="True" />
+        </StackPanel>
+
+        <TabControl>
+            <!-- ── Connection ──────────────────────────────────────────── -->
+            <TabItem Header="Connection">
+                <ScrollViewer>
+                    <Grid ColumnDefinitions="140,*"
+                          RowDefinitions="Auto,Auto,Auto,Auto"
+                          RowSpacing="8" ColumnSpacing="8" Margin="4,12,4,4">
+                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Server URL" />
+                        <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding ServerUrl}"
+                                   Watermark="https://eas.example.com/Microsoft-Server-ActiveSync" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Domain" />
+                        <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding Domain}"
+                                   Watermark="(leave empty if not required)" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Username" />
+                        <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding Username}" />
+
+                        <CheckBox Grid.Row="3" Grid.Column="1" IsChecked="{Binding SavePassword}"
+                                  IsEnabled="{Binding CanSavePassword}"
+                                  Content="Remember password (Windows DPAPI, current user only)"
+                                  ToolTip.Tip="Encrypts the password with Windows Data Protection API — only your Windows user account can decrypt it" />
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ── Archive ──────────────────────────────────────────────── -->
+            <TabItem Header="Archive">
+                <ScrollViewer>
+                    <Grid ColumnDefinitions="140,*"
+                          RowDefinitions="Auto,Auto,Auto"
+                          RowSpacing="8" ColumnSpacing="8" Margin="4,12,4,4">
+                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Archive directory" />
+                        <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*,Auto">
+                            <TextBox Grid.Column="0" Text="{Binding ArchiveDirectory}"
+                                     Watermark="mail_archive or D:\MailArchive" />
+                            <Button Grid.Column="1" Content="Browse…" Margin="4,0,0,0"
+                                    Command="{Binding BrowseArchiveDirCommand}" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Window size" />
+                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <NumericUpDown Value="{Binding WindowSize}"
+                                           Minimum="1" Maximum="500" Width="120" />
+                            <TextBlock VerticalAlignment="Center" Opacity="0.6"
+                                       Text="emails per Sync request" />
+                        </StackPanel>
+
+                        <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding FixHeaders}"
+                                  Content="Fix non-ASCII MIME headers (RFC 2047)"
+                                  ToolTip.Tip="Some Exchange servers deliver raw UTF-8 in headers; this re-encodes them so mail clients display them correctly" />
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ── Advanced ─────────────────────────────────────────────── -->
+            <TabItem Header="Advanced">
+                <ScrollViewer>
+                    <Grid ColumnDefinitions="140,*"
+                          RowDefinitions="Auto,Auto"
+                          RowSpacing="8" ColumnSpacing="8" Margin="4,12,4,4">
+                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Log verbosity" />
+                        <ComboBox  Grid.Row="0" Grid.Column="1" SelectedIndex="{Binding VerbosityIndex}"
+                                   HorizontalAlignment="Left" Width="180">
+                            <ComboBoxItem Content="V1 — Standard" />
+                            <ComboBoxItem Content="V2 — Verbose" />
+                            <ComboBoxItem Content="V3 — Debug" />
+                        </ComboBox>
+
+                        <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding DebugBlobs}"
+                                  Content="Dump raw Sync WBXML to disk (debug)"
+                                  ToolTip.Tip="Writes raw WBXML blobs for each Sync command to the app data directory for debugging" />
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

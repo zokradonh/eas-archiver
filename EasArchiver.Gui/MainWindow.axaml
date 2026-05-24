@@ -5,158 +5,198 @@
         x:DataType="vm:MainViewModel"
         Title="{Binding AppVersion, StringFormat='EAS Email Archiver v{0}'}"
         Icon="avares://EasArchiver.Gui/icon.ico"
-        Width="750" Height="700" MinWidth="550" MinHeight="500">
+        Width="720" Height="700" MinWidth="520" MinHeight="560">
 
     <Window.DataContext>
         <vm:MainViewModel />
     </Window.DataContext>
 
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+L" Command="{Binding ToggleLogCommand}" />
+    </Window.KeyBindings>
+
     <DockPanel Margin="16">
 
-        <!-- ── Status bar ──────────────────────────────────────────────── -->
-        <Border DockPanel.Dock="Bottom" Margin="0,8,0,0" Padding="8,4"
+        <!-- ── Header ─────────────────────────────────────────────────────── -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="0,0,0,12">
+            <!-- Account chip -->
+            <Border Grid.Column="0" Padding="10,4" CornerRadius="12"
+                    Background="{DynamicResource SystemControlBackgroundListLowBrush}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="●" FontSize="14" VerticalAlignment="Center"
+                               Foreground="#22c55e" IsVisible="{Binding IsConfigured}" />
+                    <TextBlock Text="●" FontSize="14" VerticalAlignment="Center"
+                               Foreground="#ef4444" IsVisible="{Binding !IsConfigured}" />
+                    <TextBlock Text="{Binding AccountSummary}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Border>
+
+            <!-- Updates -->
+            <Button Grid.Column="2" Content="↑ Updates" Padding="10,4" FontSize="12"
+                    Command="{Binding CheckForUpdatesCommand}"
+                    IsVisible="{Binding !UpdateAvailable}"
+                    ToolTip.Tip="Check for updates" />
+            <Button Grid.Column="2"
+                    Content="{Binding UpdateVersion, StringFormat='↑ Install v{0}'}"
+                    Command="{Binding ApplyUpdateCommand}"
+                    Classes="accent" Padding="10,4" FontSize="12"
+                    IsVisible="{Binding UpdateAvailable}" />
+
+            <!-- Settings gear -->
+            <Button Grid.Column="3" Content="⚙" FontSize="18" Padding="10,2" Margin="6,0,0,0"
+                    Click="OnOpenSettings"
+                    ToolTip.Tip="Settings" />
+
+            <!-- Log toggle -->
+            <Button Grid.Column="4" Content="🛈" FontSize="14" Padding="10,2" Margin="6,0,0,0"
+                    Command="{Binding ToggleLogCommand}"
+                    ToolTip.Tip="Show diagnostic log (Ctrl+L)" />
+        </Grid>
+
+        <!-- ── Status bar ─────────────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0" Padding="10,6"
                 Background="{DynamicResource SystemControlBackgroundListLowBrush}"
                 CornerRadius="4">
-            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto">
                 <TextBlock Grid.Column="0" Text="{Binding StatusText}"
                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1" Text="{Binding ProgressText}"
                            FontStyle="Italic" Opacity="0.8" Margin="12,0"
                            VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Text="{Binding RequestCountText}"
-                           Opacity="0.6" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <!-- Update lives here — out of the way but always visible -->
-                <Button Grid.Column="3" Content="↑ Updates" Padding="8,2" FontSize="12"
-                        Command="{Binding CheckForUpdatesCommand}"
-                        IsVisible="{Binding !UpdateAvailable}" />
-                <Button Grid.Column="3"
-                        Content="{Binding UpdateVersion, StringFormat='↑ Install v{0}'}"
-                        Command="{Binding ApplyUpdateCommand}"
-                        Classes="accent" Padding="8,2" FontSize="12"
-                        IsVisible="{Binding UpdateAvailable}" />
+                           Opacity="0.6" VerticalAlignment="Center" />
             </Grid>
         </Border>
 
-        <!-- ── Main content ────────────────────────────────────────────── -->
-        <Grid RowDefinitions="Auto,*,Auto">
+        <!-- ── Log overlay (toggleable) ───────────────────────────────────── -->
+        <Border DockPanel.Dock="Bottom" Margin="0,8,0,0" Padding="8" CornerRadius="6"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1"
+                Height="180"
+                IsVisible="{Binding ShowLog}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Diagnostic log" FontWeight="SemiBold"
+                           Margin="0,0,0,4" />
+                <ListBox ItemsSource="{Binding LogLines}"
+                         FontFamily="Cascadia Mono, Consolas, monospace" FontSize="12"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto" />
+            </DockPanel>
+        </Border>
 
-            <!-- Config section -->
-            <Border Grid.Row="0" Padding="12" CornerRadius="6"
+        <!-- ── Main content ───────────────────────────────────────────────── -->
+        <Grid RowDefinitions="Auto,Auto,*">
+
+            <!-- Big Sync button area -->
+            <Border Grid.Row="0" Padding="20" CornerRadius="8"
                     BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-                    BorderThickness="1" Margin="0,0,0,8">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="Configuration" FontWeight="SemiBold" FontSize="16" />
+                    BorderThickness="1" Margin="0,0,0,12">
+                <StackPanel Spacing="12" HorizontalAlignment="Center">
 
-                    <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
-                          RowSpacing="6" ColumnSpacing="8">
+                    <!-- The big circular state indicator -->
+                    <Grid Width="140" Height="140" HorizontalAlignment="Center">
+                        <!-- Idle ring -->
+                        <Ellipse Width="140" Height="140" StrokeThickness="3"
+                                 Stroke="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                                 IsVisible="{Binding ShowIdleRing}" />
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Server URL" />
-                        <TextBox   Grid.Row="0" Grid.Column="1" Text="{Binding ServerUrl}"
-                                   Watermark="https://eas.example.com/Microsoft-Server-ActiveSync" />
+                        <!-- Spinner while syncing -->
+                        <ProgressBar IsIndeterminate="True" Width="140" Height="140"
+                                     Classes="circular"
+                                     IsVisible="{Binding IsSyncing}" />
 
-                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Domain" />
-                        <TextBox   Grid.Row="1" Grid.Column="1" Text="{Binding Domain}"
-                                   Watermark="(leave empty if not required)" />
+                        <!-- Success checkmark -->
+                        <Ellipse Width="140" Height="140" Fill="#22c55e"
+                                 IsVisible="{Binding LastSyncSuccess}" />
+                        <TextBlock Text="✓" FontSize="72" Foreground="White"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   IsVisible="{Binding LastSyncSuccess}" />
 
-                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Username" />
-                        <TextBox   Grid.Row="2" Grid.Column="1" Text="{Binding Username}" />
+                        <!-- Error X -->
+                        <Ellipse Width="140" Height="140" Fill="#ef4444"
+                                 IsVisible="{Binding LastSyncError}" />
+                        <TextBlock Text="✕" FontSize="64" Foreground="White"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   IsVisible="{Binding LastSyncError}" />
 
-                        <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Archive Directory" />
-                        <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*,Auto">
-                            <TextBox Grid.Column="0" Text="{Binding ArchiveDirectory}"
-                                     Watermark="mail_archive or D:\MailArchive" />
-                            <Button Grid.Column="1" Content="Browse…" Margin="4,0,0,0"
-                                    Command="{Binding BrowseArchiveDirCommand}" />
-                        </Grid>
-
-                        <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="Window Size" />
-                        <NumericUpDown Grid.Row="4" Grid.Column="1" Value="{Binding WindowSize}"
-                                       Minimum="1" Maximum="500" HorizontalAlignment="Left" Width="120" />
-
-                        <CheckBox Grid.Row="5" Grid.Column="1" IsChecked="{Binding FixHeaders}"
-                                  Content="Fix non-ASCII MIME headers (RFC 2047)" />
-
-                        <CheckBox Grid.Row="6" Grid.Column="1" IsChecked="{Binding SavePassword}"
-                                  IsEnabled="{Binding CanSavePassword}"
-                                  Content="Remember password (Windows DPAPI, current user only)"
-                                  ToolTip.Tip="Encrypts the password with Windows Data Protection API — only your Windows user account can decrypt it" />
-
-                        <TextBlock Grid.Row="7" Grid.Column="0" VerticalAlignment="Center" Text="Verbosity" />
-                        <ComboBox  Grid.Row="7" Grid.Column="1" SelectedIndex="{Binding VerbosityIndex}"
-                                   HorizontalAlignment="Left" Width="150">
-                            <ComboBoxItem Content="V1 — Standard" />
-                            <ComboBoxItem Content="V2 — Verbose" />
-                            <ComboBoxItem Content="V3 — Debug" />
-                        </ComboBox>
-
-                        <CheckBox Grid.Row="8" Grid.Column="1" IsChecked="{Binding DebugBlobs}"
-                                  Content="Debug blobs (dump raw Sync WBXML to disk)"
-                                  ToolTip.Tip="Writes raw WBXML blobs for each Sync command to the app data directory for debugging" />
+                        <!-- Center play icon when idle -->
+                        <TextBlock Text="▶" FontSize="48" Opacity="0.7"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Margin="8,0,0,0"
+                                   IsVisible="{Binding ShowIdleRing}" />
                     </Grid>
 
-                    <!-- Buttons — two logical groups -->
-                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,4,0,0">
-                        <!-- Config actions -->
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
-                            <Button Content="Save" Command="{Binding SaveConfigCommand}"
-                                    ToolTip.Tip="Save Config" />
-                            <Button Content="Reload" Command="{Binding LoadConfigCommand}"
-                                    ToolTip.Tip="Reload Config" />
-                        </StackPanel>
-                        <!-- Sync actions -->
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
-                            <Button Content="List Folders" Command="{Binding ListFoldersCommand}" />
-                            <Button Content="Start Sync" Command="{Binding StartSyncCommand}"
-                                    Classes="accent" />
-                            <Button Content="Stop" Command="{Binding StopSyncCommand}" />
-                            <Border Width="1" Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-                                    Margin="2,3" />
-                            <Button Content="Reset State" Command="{Binding ResetSyncStateCommand}"
-                                    ToolTip.Tip="Reset Sync State" />
-                        </StackPanel>
-                    </Grid>
+                    <!-- Action button -->
+                    <Button Content="{Binding SyncButtonText}"
+                            Command="{Binding ToggleSyncCommand}"
+                            Classes="accent"
+                            FontSize="16" FontWeight="SemiBold"
+                            Padding="32,10"
+                            HorizontalAlignment="Center" />
                 </StackPanel>
             </Border>
 
-            <!-- Folder selection — fills remaining space -->
-            <Border Grid.Row="1" Padding="8" CornerRadius="6"
+            <!-- Folder list controls -->
+            <Border Grid.Row="2" Padding="12" CornerRadius="8"
                     BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-                    BorderThickness="1" Margin="0,0,0,8"
-                    IsVisible="{Binding HasFolders}">
+                    BorderThickness="1">
                 <DockPanel>
+                    <!-- Header row -->
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                        <TextBlock Grid.Column="0" Text="{Binding FoldersHeader}"
+                                   FontWeight="SemiBold" FontSize="14"
+                                   VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="Refresh"
+                                Command="{Binding ListFoldersCommand}"
+                                Padding="10,4" FontSize="12"
+                                ToolTip.Tip="Fetch current folder list from the server" />
+                    </Grid>
+
+                    <!-- Sync-all toggle -->
                     <CheckBox DockPanel.Dock="Top" IsChecked="{Binding SyncAll}"
-                              Content="Sync all folders (even newly created ones)" Margin="0,0,0,4" />
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,4"
-                                IsEnabled="{Binding !SyncAll}">
-                        <TextBlock Text="Folders" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        <Button Content="All" Command="{Binding SelectAllFoldersCommand}"
-                                Padding="8,2" FontSize="12" />
-                        <Button Content="None" Command="{Binding SelectNoneFoldersCommand}"
-                                Padding="8,2" FontSize="12" />
-                    </StackPanel>
-                    <ListBox ItemsSource="{Binding Folders}" IsEnabled="{Binding !SyncAll}"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:FolderItemViewModel">
-                                <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Path}" />
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                              Content="Sync all folders (even ones created in the future)"
+                              Margin="0,0,0,8" />
+
+                    <!-- Select all/none + reset state -->
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,0,0,6"
+                          IsEnabled="{Binding !SyncAll}">
+                        <Button Grid.Column="0" Content="All"
+                                Command="{Binding SelectAllFoldersCommand}"
+                                Padding="10,3" FontSize="12" />
+                        <Button Grid.Column="1" Content="None" Margin="6,0,0,0"
+                                Command="{Binding SelectNoneFoldersCommand}"
+                                Padding="10,3" FontSize="12" />
+                        <Button Grid.Column="3" Content="Reset sync state"
+                                Command="{Binding ResetSyncStateCommand}"
+                                Padding="10,3" FontSize="12"
+                                ToolTip.Tip="Forget all SyncKeys — next sync will be a full re-fetch" />
+                    </Grid>
+
+                    <!-- The list -->
+                    <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                            BorderThickness="1" CornerRadius="4"
+                            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+                        <Grid>
+                            <ListBox ItemsSource="{Binding Folders}"
+                                     IsEnabled="{Binding !SyncAll}"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FolderItemViewModel">
+                                        <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Path}" />
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <!-- Empty state hint -->
+                            <TextBlock IsVisible="{Binding !HasFolders}"
+                                       Text="No folders loaded yet. Click 'Refresh' to fetch the folder list from the server."
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Opacity="0.6" Margin="20" TextWrapping="Wrap"
+                                       TextAlignment="Center" />
+                        </Grid>
+                    </Border>
                 </DockPanel>
             </Border>
-
-            <!-- Log — collapsible expander at bottom -->
-            <Expander Grid.Row="2" Header="Log" IsExpanded="{Binding ShowLog}"
-                      Margin="0,0,0,0" Padding="0">
-                <Border Padding="8" CornerRadius="0,0,6,6"
-                        BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-                        BorderThickness="1,0,1,1"
-                        Height="180">
-                    <ListBox ItemsSource="{Binding LogLines}"
-                             FontFamily="Cascadia Mono, Consolas, monospace" FontSize="12"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
-                </Border>
-            </Expander>
 
         </Grid>
     </DockPanel>

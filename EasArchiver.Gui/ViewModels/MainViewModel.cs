@@ -40,6 +40,26 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string progressText = "";
     [ObservableProperty] private string requestCountText = "0 requests";
     [ObservableProperty] private bool showLog;
+    [ObservableProperty] private bool lastSyncSuccess;
+    [ObservableProperty] private bool lastSyncError;
+
+    // ── Derived UI state ────────────────────────────────────────────────────
+    public bool IsConfigured =>
+        !string.IsNullOrWhiteSpace(ServerUrl) && !string.IsNullOrWhiteSpace(Username);
+
+    public string AccountSummary =>
+        IsConfigured
+            ? (string.IsNullOrWhiteSpace(Domain) ? Username : $"{Domain}\\{Username}")
+            : "Not configured — open Settings";
+
+    public string SyncButtonText => IsSyncing ? "Stop" : "Start Sync";
+    public bool IsIdle => !IsSyncing && !IsListingFolders;
+    public bool ShowIdleRing => IsIdle && !LastSyncSuccess && !LastSyncError;
+    public int SelectedFolderCount => Folders.Count(f => f.IsSelected);
+    public string FoldersHeader =>
+        SyncAll
+            ? $"Folders ({Folders.Count}) — all will be synced"
+            : $"Folders — {SelectedFolderCount} of {Folders.Count} selected";
     private int _totalRequestCount;
     private int _lastReportedCount;
 
@@ -198,6 +218,20 @@ public partial class MainViewModel : ObservableObject
         });
         IsSyncing = false;
         _cts = null;
+        LastSyncSuccess = _lastOperationSucceeded;
+        LastSyncError = !_lastOperationSucceeded;
+    }
+
+    [RelayCommand]
+    private void ToggleLog() => ShowLog = !ShowLog;
+
+    [RelayCommand]
+    private async Task ToggleSync()
+    {
+        if (IsSyncing)
+            StopSyncCommand.Execute(null);
+        else
+            await StartSyncCommand.ExecuteAsync(null);
     }
 
     private bool CanStartSync() => !IsSyncing && (SyncAll || Folders.Any(f => f.IsSelected));
@@ -283,10 +317,13 @@ public partial class MainViewModel : ObservableObject
 
     // ── Shared EAS operation runner ────────────────────────────────────────
 
+    private bool _lastOperationSucceeded;
+
     private async Task RunEasOperationAsync(string statusLabel,
         Action<SyncProgress>? onProgress,
         Func<EasArchiver, SyncState, IProgress<SyncProgress>, CancellationToken, Task<string>> operation)
     {
+        _lastOperationSucceeded = false;
         var cfg = BuildConfig();
 
         if (string.IsNullOrWhiteSpace(cfg.ServerUrl) ||
@@ -332,6 +369,7 @@ public partial class MainViewModel : ObservableObject
 
             if (SavePassword && _cachedPassword is not null)
                 CredentialService.Save(_cachedPassword);
+            _lastOperationSucceeded = true;
         }
         catch (OperationCanceledException)
         {
@@ -364,11 +402,41 @@ public partial class MainViewModel : ObservableObject
         StartSyncCommand.NotifyCanExecuteChanged();
         StopSyncCommand.NotifyCanExecuteChanged();
         ListFoldersCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(SyncButtonText));
+        OnPropertyChanged(nameof(IsIdle));
+        OnPropertyChanged(nameof(ShowIdleRing));
+        if (value)
+        {
+            LastSyncSuccess = false;
+            LastSyncError = false;
+        }
     }
 
     partial void OnIsListingFoldersChanged(bool value)
     {
         ListFoldersCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(IsIdle));
+        OnPropertyChanged(nameof(ShowIdleRing));
+    }
+
+    partial void OnLastSyncSuccessChanged(bool value) => OnPropertyChanged(nameof(ShowIdleRing));
+    partial void OnLastSyncErrorChanged(bool value) => OnPropertyChanged(nameof(ShowIdleRing));
+
+    partial void OnServerUrlChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsConfigured));
+        OnPropertyChanged(nameof(AccountSummary));
+    }
+
+    partial void OnUsernameChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsConfigured));
+        OnPropertyChanged(nameof(AccountSummary));
+    }
+
+    partial void OnDomainChanged(string value)
+    {
+        OnPropertyChanged(nameof(AccountSummary));
     }
 
     partial void OnIsCheckingForUpdateChanged(bool value)
@@ -385,11 +453,14 @@ public partial class MainViewModel : ObservableObject
     partial void OnSyncAllChanged(bool value)
     {
         StartSyncCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(FoldersHeader));
     }
 
     private void NotifyFolderSelectionChanged()
     {
         StartSyncCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(SelectedFolderCount));
+        OnPropertyChanged(nameof(FoldersHeader));
     }
 
     private async Task<string?> PromptPassword()
