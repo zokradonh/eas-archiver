@@ -521,8 +521,8 @@ public class EasArchiver : IDisposable
         string? content = null;
 
         var bodies = appData.Descendants(NsAirSyncBase + "Body").ToList();
-        Log.Debug("  SaveEmail: {ServerId} subject={Subject} bodies={BodyCount}",
-            serverId, subject, bodies.Count);
+        Log.Debug("  SaveEmail: {ServerId} bodies={BodyCount}",
+            serverId, bodies.Count);
         foreach (var body in bodies)
         {
             var type = body.Element(NsAirSyncBase + "Type")?.Value;
@@ -612,8 +612,8 @@ public class EasArchiver : IDisposable
         var resp = await _http.PostAsync(url, content);
 
         // ── BackOff monitoring (always logged) ───────────────────────────────
-        if (resp.Headers.TryGetValues("X-MS-BackOffDuration", out var backOffValues))
-            Log.Information("⚠ X-MS-BackOffDuration: {Value} (cmd={Cmd})", string.Join(", ", backOffValues), cmd);
+        // if (resp.Headers.TryGetValues("X-MS-BackOffDuration", out var backOffValues))
+        //     Log.Information("⚠ X-MS-BackOffDuration: {Value} (cmd={Cmd})", string.Join(", ", backOffValues), cmd);
 
         // ── Verbosity: Response ───────────────────────────────────────────────
         if (_v >= 1) Log.Debug("← {StatusCode} {Reason}", (int)resp.StatusCode, resp.ReasonPhrase);

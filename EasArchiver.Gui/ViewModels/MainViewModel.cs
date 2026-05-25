@@ -115,6 +115,15 @@ public partial class MainViewModel : ObservableObject
 
     public MainViewModel()
     {
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.Sink(new DelegateSink(AppendLog))
+            .WriteTo.File(LogFile,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 14)
+            .CreateLogger();
+
         LoadConfig();
     }
 
@@ -339,15 +348,6 @@ public partial class MainViewModel : ObservableObject
 
         StatusText = statusLabel;
         LogLines.Clear();
-
-        Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Debug()
-            .WriteTo.Sink(new DelegateSink(AppendLog))
-            .WriteTo.File(LogFile,
-                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
-                rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 14)
-            .CreateLogger();
 
         var progress = new Progress<SyncProgress>(p =>
         {
