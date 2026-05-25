@@ -211,6 +211,7 @@
                         <Button Grid.Column="3" Content="Reset sync state"
                                 Command="{Binding ResetSyncStateCommand}"
                                 Padding="10,3" FontSize="12"
+                                Foreground="#C0392B"
                                 ToolTip.Tip="Forget all SyncKeys — next sync will be a full re-fetch" />
                     </Grid>
 
