@@ -15,6 +15,25 @@
         <KeyBinding Gesture="Ctrl+L" Command="{Binding ToggleLogCommand}" />
     </Window.KeyBindings>
 
+    <Window.Styles>
+        <Style Selector="Ellipse.spinner">
+            <Setter Property="Opacity" Value="0" />
+        </Style>
+        <Style Selector="Ellipse.spinner.active">
+            <Setter Property="Opacity" Value="1" />
+            <Style.Animations>
+                <Animation Duration="0:0:1" IterationCount="INFINITE">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="(RotateTransform.Angle)" Value="0.0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="(RotateTransform.Angle)" Value="360.0" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </Window.Styles>
+
     <DockPanel Margin="16">
 
         <!-- ── Header ─────────────────────────────────────────────────────── -->
@@ -102,24 +121,38 @@
                             ToolTip.Tip="{Binding SyncButtonText}">
                         <Grid>
                             <!-- Idle ring -->
-                            <Ellipse Width="140" Height="140" StrokeThickness="3"
+                            <Ellipse Width="120" Height="120" StrokeThickness="3"
                                      Stroke="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                                      IsVisible="{Binding ShowIdleRing}" />
 
-                            <!-- Spinner while syncing -->
-                            <ProgressBar IsIndeterminate="True" Width="140" Height="140"
-                                         Classes="circular"
-                                         IsVisible="{Binding IsSyncing}" />
+                            <!-- Spinner while syncing — static background ring -->
+                            <Ellipse Width="120" Height="120" StrokeThickness="6"
+                                     Stroke="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                                     IsVisible="{Binding IsSyncing}" />
+                            <!-- Spinner while syncing — rotating arc (always in tree, opacity-toggled, rotated in code-behind) -->
+                            <Ellipse x:Name="SpinnerArc"
+                                     Classes="spinner"
+                                     Classes.active="{Binding IsSyncing}"
+                                     Width="120" Height="120"
+                                     StrokeThickness="6"
+                                     Stroke="#3b82f6"
+                                     StrokeDashArray="12,80"
+                                     RenderTransformOrigin="50%,50%"
+                                     IsHitTestVisible="False">
+                                <Ellipse.RenderTransform>
+                                    <RotateTransform />
+                                </Ellipse.RenderTransform>
+                            </Ellipse>
 
                             <!-- Success: green disk + checkmark -->
-                            <Ellipse Width="140" Height="140" Fill="#22c55e"
+                            <Ellipse Width="130" Height="130" Fill="#22c55e"
                                      IsVisible="{Binding LastSyncSuccess}" />
                             <TextBlock Text="✓" FontSize="72" Foreground="White"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        IsVisible="{Binding LastSyncSuccess}" />
 
                             <!-- Error: red disk + X -->
-                            <Ellipse Width="140" Height="140" Fill="#ef4444"
+                            <Ellipse Width="130" Height="130" Fill="#ef4444"
                                      IsVisible="{Binding LastSyncError}" />
                             <TextBlock Text="✕" FontSize="64" Foreground="White"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
