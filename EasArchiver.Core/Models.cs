@@ -74,4 +74,30 @@ public class SyncState
     public Dictionary<string, string>      FolderKeys    { get; set; } = [];
     /// <summary>All folders (email + non-email) for hierarchy path resolution. Email folders have IsEmailFolder = true.</summary>
     public Dictionary<string, FolderInfo>  Folders       { get; set; } = [];
+
+    /// <summary>Logical paths (e.g. "Inbox/Projekte/2024") of all email folders, sorted alphabetically.</summary>
+    [JsonIgnore]
+    public List<string> EmailFolderPaths =>
+        Folders.Where(kv => kv.Value.IsEmailFolder)
+            .Select(kv => ResolveLogicalPath(kv.Key))
+            .Where(p => p.Length > 0)
+            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private string ResolveLogicalPath(string folderId)
+    {
+        var segments = new List<string>();
+        var current  = folderId;
+        HashSet<string> visited = [];
+
+        while (current is not null and not "0" && Folders.TryGetValue(current, out var info))
+        {
+            if (!visited.Add(current)) break;
+            segments.Add(info.Name);
+            current = info.ParentId;
+        }
+
+        segments.Reverse();
+        return string.Join("/", segments);
+    }
 }

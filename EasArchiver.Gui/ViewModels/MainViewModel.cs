@@ -476,13 +476,24 @@ public partial class MainViewModel : ObservableObject
     {
         SyncAll = include.Count == 0;
         Folders.Clear();
-        foreach (var path in include.OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+
+        // Prefer the full folder list persisted in eas_sync_state.json so the UI
+        // shows everything the server knows about, not just the Include whitelist.
+        var knownPaths = ConfigService.LoadState().EmailFolderPaths;
+        var includeSet = include.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        List<string> paths = knownPaths.Count > 0
+            ? knownPaths
+            : [.. include.OrderBy(p => p, StringComparer.OrdinalIgnoreCase)];
+
+        foreach (var path in paths)
         {
-            var item = new FolderItemViewModel(path) { IsSelected = true };
+            bool selected = SyncAll || includeSet.Contains(path);
+            var item = new FolderItemViewModel(path) { IsSelected = selected };
             item.PropertyChanged += (_, _) => NotifyFolderSelectionChanged();
             Folders.Add(item);
         }
         HasFolders = Folders.Count > 0;
+        NotifyFolderSelectionChanged();
     }
 
     private EasConfig BuildConfig()
