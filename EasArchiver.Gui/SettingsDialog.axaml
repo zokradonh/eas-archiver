@@ -13,7 +13,7 @@
         <!-- Buttons -->
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
                     HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
-            <Button Content="Cancel" Click="OnCancel" />
+            <Button Content="Cancel" Click="OnCancel" IsCancel="True" />
             <Button Content="OK" Click="OnOk" Classes="accent" IsDefault="True" />
         </StackPanel>
 

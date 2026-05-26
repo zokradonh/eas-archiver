@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using System.IO;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -13,6 +14,9 @@ public partial class MainWindow : Window
         InitializeComponent();
         if (DataContext is MainViewModel vm)
         {
+            // Auto-scroll the log to the newest entry whenever lines are added.
+            vm.LogLines.CollectionChanged += OnLogLinesChanged;
+
             vm.RequestPassword = async () =>
             {
                 var dialog = new PasswordDialog();
@@ -63,5 +67,17 @@ public partial class MainWindow : Window
             var dialog = new SettingsDialog(vm);
             await dialog.ShowDialog(this);
         }
+    }
+
+    private void OnLogLinesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action != NotifyCollectionChangedAction.Add) return;
+        if (DataContext is not MainViewModel vm || vm.LogLines.Count == 0) return;
+        // Defer to after layout so the new item exists in the visual tree.
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            var last = vm.LogLines[^1];
+            LogListBox.ScrollIntoView(last);
+        }, Avalonia.Threading.DispatcherPriority.Background);
     }
 }

@@ -10,11 +10,11 @@
 
     <StackPanel Margin="20" Spacing="12">
         <TextBlock TextWrapping="Wrap">
-            Sync state zurücksetzen? Die nächste Synchronisation wird eine vollständige Synchronisation aller Ordner sein.
+            Reset sync state? The next sync will be a full re-fetch of all folders.
         </TextBlock>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button Content="Abbrechen" Click="OnCancel" Classes="accent" />
-            <Button Content="Zurücksetzen" Click="OnConfirm" />
+            <Button Content="Reset" Click="OnConfirm" Foreground="#C0392B" />
+            <Button Content="Cancel" Click="OnCancel" Classes="accent" IsDefault="True" />
         </StackPanel>
     </StackPanel>
 </Window>

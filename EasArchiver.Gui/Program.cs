@@ -1,5 +1,5 @@
 ﻿using Avalonia;
-using System;
+using Serilog;
 using Velopack;
 
 namespace EasArchiver.Gui;
@@ -13,7 +13,14 @@ class Program
     public static void Main(string[] args)
     {
         VelopackApp.Build().Run();
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        try
+        {
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        }
+        finally
+        {
+            Log.CloseAndFlush();
+        }
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.

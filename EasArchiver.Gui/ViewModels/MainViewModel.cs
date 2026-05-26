@@ -53,6 +53,10 @@ public partial class MainViewModel : ObservableObject
             : "Not configured — open Settings";
 
     public string SyncButtonText => IsSyncing ? "Stop" : "Start Sync";
+    public string EmptyFoldersHint =>
+        IsConfigured
+            ? "No folders loaded yet. Click 'Refresh' to fetch the folder list from the server."
+            : "No account configured yet. Open Settings (⚙ button above) to add your Exchange account.";
     public bool IsIdle => !IsSyncing && !IsListingFolders;
     public bool ShowIdleRing => IsIdle && !LastSyncSuccess && !LastSyncError;
     public int SelectedFolderCount => Folders.Count(f => f.IsSelected);
@@ -124,7 +128,15 @@ public partial class MainViewModel : ObservableObject
                 retainedFileCountLimit: 14)
             .CreateLogger();
 
+        LoadConfigSilent();
+    }
+
+    /// <summary>Used at startup — same as LoadConfig but doesn't touch StatusText.</summary>
+    private void LoadConfigSilent()
+    {
+        var previous = StatusText;
         LoadConfig();
+        StatusText = previous;
     }
 
     // ── Commands ─────────────────────────────────────────────────────────────
@@ -134,37 +146,52 @@ public partial class MainViewModel : ObservableObject
     {
         var cfg = BuildConfig();
         ConfigService.SaveConfig(cfg);
-        // Persist or delete DPAPI-encrypted password
-        if (SavePassword && _cachedPassword is not null)
-            CredentialService.Save(_cachedPassword);
+        // Persist or delete DPAPI-encrypted password.
+        // Only delete when the user explicitly turned the checkbox OFF — otherwise
+        // opening Settings + OK before the first sync would wipe a previously saved password.
+        if (SavePassword)
+        {
+            if (_cachedPassword is not null)
+                CredentialService.Save(_cachedPassword);
+        }
         else
+        {
             CredentialService.Delete();
+        }
         StatusText = "Configuration saved";
     }
 
     [RelayCommand]
     private void LoadConfig()
     {
-        var cfg = ConfigService.LoadConfig();
-        ServerUrl = cfg.ServerUrl;
-        Domain = cfg.Domain;
-        Username = cfg.Username;
-        ArchiveDirectory = cfg.ArchiveDirectory;
-        WindowSize = cfg.WindowSize;
-        ConfirmEvery = cfg.ConfirmEvery;
-        FixHeaders = cfg.FixHeaders;
-        DebugBlobs = cfg.DebugBlobs;
-        VerbosityIndex = cfg.Verbosity > 0 ? cfg.Verbosity - 1 : 0;
-        // Restore folder selection from saved Include list
-        LoadFolderSelection(cfg.Include);
-        // Try loading DPAPI-encrypted password
-        var storedPwd = CredentialService.Load();
-        if (storedPwd is not null)
+        _suppressPasswordInvalidation = true;
+        try
         {
-            _cachedPassword = storedPwd;
-            SavePassword = true;
+            var cfg = ConfigService.LoadConfig();
+            ServerUrl = cfg.ServerUrl;
+            Domain = cfg.Domain;
+            Username = cfg.Username;
+            ArchiveDirectory = ResolveArchiveDirectory(cfg);
+            WindowSize = cfg.WindowSize;
+            ConfirmEvery = cfg.ConfirmEvery;
+            FixHeaders = cfg.FixHeaders;
+            DebugBlobs = cfg.DebugBlobs;
+            VerbosityIndex = cfg.Verbosity > 0 ? cfg.Verbosity - 1 : 0;
+            // Restore folder selection from saved Include list
+            LoadFolderSelection(cfg.Include);
+            // Try loading DPAPI-encrypted password
+            var storedPwd = CredentialService.Load();
+            if (storedPwd is not null)
+            {
+                _cachedPassword = storedPwd;
+                SavePassword = true;
+            }
+            StatusText = "Configuration loaded";
         }
-        StatusText = "Configuration loaded";
+        finally
+        {
+            _suppressPasswordInvalidation = false;
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanListFolders))]
@@ -226,15 +253,33 @@ public partial class MainViewModel : ObservableObject
             return $"Done — archive: {archivePath}";
         });
         IsSyncing = false;
+        _cts?.Dispose();
         _cts = null;
         LastSyncSuccess = _lastOperationSucceeded;
         LastSyncError = !_lastOperationSucceeded;
+        _ = ResetStatusDiscAfterDelayAsync();
     }
+
+    /// <summary>
+    /// Fades the success/error disc back to idle after a short delay so the big sync button
+    /// returns to a clear "ready to click again" state instead of looking permanently done/failed.
+    /// </summary>
+    private async Task ResetStatusDiscAfterDelayAsync()
+    {
+        var token = ++_resetDiscToken;
+        await Task.Delay(TimeSpan.FromSeconds(5));
+        if (token != _resetDiscToken) return; // a newer sync started; let that one handle the reset
+        if (IsSyncing) return;
+        LastSyncSuccess = false;
+        LastSyncError = false;
+    }
+
+    private int _resetDiscToken;
 
     [RelayCommand]
     private void ToggleLog() => ShowLog = !ShowLog;
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanToggleSync))]
     private async Task ToggleSync()
     {
         if (IsSyncing)
@@ -243,7 +288,21 @@ public partial class MainViewModel : ObservableObject
             await StartSyncCommand.ExecuteAsync(null);
     }
 
-    private bool CanStartSync() => !IsSyncing && (SyncAll || Folders.Any(f => f.IsSelected));
+    private bool CanStartSync() => !IsSyncing && IsConfigured && (SyncAll || Folders.Any(f => f.IsSelected));
+    private bool CanToggleSync() => IsSyncing || CanStartSync();
+
+    /// <summary>Hint shown on the big sync button — explains why it's disabled, or what it will do.</summary>
+    public string SyncButtonTooltip
+    {
+        get
+        {
+            if (IsSyncing) return "Cancel the current sync";
+            if (!IsConfigured) return "Open Settings to configure your account first";
+            if (!SyncAll && !Folders.Any(f => f.IsSelected))
+                return "Select at least one folder, or enable 'Sync all folders'";
+            return "Start syncing emails";
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanStopSync))]
     private void StopSync()
@@ -260,6 +319,9 @@ public partial class MainViewModel : ObservableObject
         if (ConfirmResetState is not null && !await ConfirmResetState())
             return;
         ConfigService.SaveState(new SyncState());
+        Folders.Clear();
+        HasFolders = false;
+        NotifyFolderSelectionChanged();
         StatusText = "Sync state reset — next sync will be a full sync";
     }
 
@@ -312,6 +374,30 @@ public partial class MainViewModel : ObservableObject
 
     private bool CanApplyUpdate() => UpdateAvailable && !IsCheckingForUpdate;
 
+    [RelayCommand(CanExecute = nameof(CanOpenArchive))]
+    private void OpenArchive()
+    {
+        var dir = ArchiveDirectory.Trim();
+        if (string.IsNullOrEmpty(dir)) return;
+        var fullPath = Path.IsPathRooted(dir) ? dir : Path.GetFullPath(dir);
+        try
+        {
+            // Create on demand so the first-time user can open it before the first sync
+            Directory.CreateDirectory(fullPath);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = fullPath,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Could not open folder: {ex.Message}";
+        }
+    }
+
+    private bool CanOpenArchive() => !string.IsNullOrWhiteSpace(ArchiveDirectory);
+
     [RelayCommand]
     private void SelectAllFolders()
     {
@@ -347,7 +433,9 @@ public partial class MainViewModel : ObservableObject
         cfg.Password = pwd;
 
         StatusText = statusLabel;
-        LogLines.Clear();
+        if (LogLines.Count > 0)
+            AppendLog($"─── {DateTime.Now:HH:mm:ss} {statusLabel} ───");
+        TrimLogIfTooLong();
 
         var progress = new Progress<SyncProgress>(p =>
         {
@@ -389,10 +477,6 @@ public partial class MainViewModel : ObservableObject
             StatusText = $"Error: {ex.Message}";
             AppendLog($"ERROR: {ex}");
         }
-        finally
-        {
-            await Log.CloseAndFlushAsync();
-        }
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -401,8 +485,10 @@ public partial class MainViewModel : ObservableObject
     {
         StartSyncCommand.NotifyCanExecuteChanged();
         StopSyncCommand.NotifyCanExecuteChanged();
+        ToggleSyncCommand.NotifyCanExecuteChanged();
         ListFoldersCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(SyncButtonText));
+        OnPropertyChanged(nameof(SyncButtonTooltip));
         OnPropertyChanged(nameof(IsIdle));
         OnPropertyChanged(nameof(ShowIdleRing));
         if (value)
@@ -424,20 +510,47 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnServerUrlChanged(string value)
     {
+        InvalidateCachedPassword();
         OnPropertyChanged(nameof(IsConfigured));
         OnPropertyChanged(nameof(AccountSummary));
+        OnPropertyChanged(nameof(SyncButtonTooltip));
+        OnPropertyChanged(nameof(EmptyFoldersHint));
+        ToggleSyncCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnUsernameChanged(string value)
     {
+        InvalidateCachedPassword();
         OnPropertyChanged(nameof(IsConfigured));
         OnPropertyChanged(nameof(AccountSummary));
+        OnPropertyChanged(nameof(SyncButtonTooltip));
+        OnPropertyChanged(nameof(EmptyFoldersHint));
+        ToggleSyncCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnDomainChanged(string value)
     {
+        InvalidateCachedPassword();
         OnPropertyChanged(nameof(AccountSummary));
     }
+
+    partial void OnArchiveDirectoryChanged(string value)
+    {
+        OpenArchiveCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Forgets the in-memory password whenever account identity changes,
+    /// so the next sync re-prompts instead of silently using the old account's password.
+    /// </summary>
+    private void InvalidateCachedPassword()
+    {
+        if (_suppressPasswordInvalidation) return;
+        _cachedPassword = null;
+    }
+
+    /// <summary>True while LoadConfig is restoring values from disk — prevents wiping the freshly-loaded password.</summary>
+    private bool _suppressPasswordInvalidation;
 
     partial void OnIsCheckingForUpdateChanged(bool value)
     {
@@ -453,14 +566,36 @@ public partial class MainViewModel : ObservableObject
     partial void OnSyncAllChanged(bool value)
     {
         StartSyncCommand.NotifyCanExecuteChanged();
+        ToggleSyncCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(FoldersHeader));
+        OnPropertyChanged(nameof(SyncButtonTooltip));
     }
 
     private void NotifyFolderSelectionChanged()
     {
         StartSyncCommand.NotifyCanExecuteChanged();
+        ToggleSyncCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(SelectedFolderCount));
         OnPropertyChanged(nameof(FoldersHeader));
+        OnPropertyChanged(nameof(SyncButtonTooltip));
+    }
+
+    /// <summary>
+    /// On a fresh install (no server configured yet) replace the CLI-friendly relative default
+    /// "mail_archive" with an absolute path under the user's Documents folder, so GUI users
+    /// can actually find their archived mail. Once the user customizes it, the saved value wins.
+    /// </summary>
+    private static string ResolveArchiveDirectory(EasConfig cfg)
+    {
+        bool isFreshInstall = string.IsNullOrWhiteSpace(cfg.ServerUrl)
+            && string.IsNullOrWhiteSpace(cfg.Username);
+        if (isFreshInstall && cfg.ArchiveDirectory == "mail_archive")
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "EAS Archive");
+        }
+        return cfg.ArchiveDirectory;
     }
 
     private async Task<string?> PromptPassword()
@@ -514,8 +649,21 @@ public partial class MainViewModel : ObservableObject
         };
     }
 
+    private const int MaxLogLines = 2000;
+
     private void AppendLog(string message)
     {
-        Dispatcher.UIThread.Post(() => LogLines.Add(message));
+        Dispatcher.UIThread.Post(() =>
+        {
+            LogLines.Add(message);
+            TrimLogIfTooLong();
+        });
+    }
+
+    /// <summary>Caps in-memory log to MaxLogLines so it doesn't grow unboundedly across many syncs.</summary>
+    private void TrimLogIfTooLong()
+    {
+        while (LogLines.Count > MaxLogLines)
+            LogLines.RemoveAt(0);
     }
 }

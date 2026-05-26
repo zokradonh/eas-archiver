@@ -96,7 +96,8 @@
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="Diagnostic log" FontWeight="SemiBold"
                            Margin="0,0,0,4" />
-                <ListBox ItemsSource="{Binding LogLines}"
+                <ListBox x:Name="LogListBox"
+                         ItemsSource="{Binding LogLines}"
                          FontFamily="Cascadia Mono, Consolas, monospace" FontSize="12"
                          ScrollViewer.VerticalScrollBarVisibility="Auto" />
             </DockPanel>
@@ -118,7 +119,8 @@
                             HorizontalAlignment="Center"
                             HorizontalContentAlignment="Stretch"
                             VerticalContentAlignment="Stretch"
-                            ToolTip.Tip="{Binding SyncButtonText}">
+                            ToolTip.Tip="{Binding SyncButtonTooltip}"
+                            ToolTip.ShowOnDisabled="True">
                         <Grid>
                             <!-- Idle ring -->
                             <Ellipse Width="120" Height="120" StrokeThickness="3"
@@ -184,11 +186,15 @@
                     BorderThickness="1">
                 <DockPanel>
                     <!-- Header row -->
-                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8">
                         <TextBlock Grid.Column="0" Text="{Binding FoldersHeader}"
                                    FontWeight="SemiBold" FontSize="14"
                                    VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Content="Refresh"
+                        <Button Grid.Column="1" Content="Open archive"
+                                Command="{Binding OpenArchiveCommand}"
+                                Padding="10,4" FontSize="12" Margin="0,0,6,0"
+                                ToolTip.Tip="Open the archive directory in your file manager" />
+                        <Button Grid.Column="2" Content="Refresh"
                                 Command="{Binding ListFoldersCommand}"
                                 Padding="10,4" FontSize="12"
                                 ToolTip.Tip="Fetch current folder list from the server" />
@@ -196,17 +202,19 @@
 
                     <!-- Sync-all toggle -->
                     <CheckBox DockPanel.Dock="Top" IsChecked="{Binding SyncAll}"
-                              Content="Sync all folders (even ones created in the future)"
+                              Content="Sync every folder (including new ones added later)"
+                              ToolTip.Tip="When off, only the folders you tick below are synced and new folders are ignored until you tick them"
                               Margin="0,0,0,8" />
 
                     <!-- Select all/none + reset state -->
-                    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,0,0,6"
-                          IsEnabled="{Binding !SyncAll}">
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,0,0,6">
                         <Button Grid.Column="0" Content="All"
                                 Command="{Binding SelectAllFoldersCommand}"
+                                IsEnabled="{Binding !SyncAll}"
                                 Padding="10,3" FontSize="12" />
                         <Button Grid.Column="1" Content="None" Margin="6,0,0,0"
                                 Command="{Binding SelectNoneFoldersCommand}"
+                                IsEnabled="{Binding !SyncAll}"
                                 Padding="10,3" FontSize="12" />
                         <Button Grid.Column="3" Content="Reset sync state"
                                 Command="{Binding ResetSyncStateCommand}"
@@ -252,7 +260,7 @@
                             </ListBox>
                             <!-- Empty state hint -->
                             <TextBlock IsVisible="{Binding !HasFolders}"
-                                       Text="No folders loaded yet. Click 'Refresh' to fetch the folder list from the server."
+                                       Text="{Binding EmptyFoldersHint}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Opacity="0.6" Margin="20" TextWrapping="Wrap"
                                        TextAlignment="Center" />
